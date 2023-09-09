@@ -15,18 +15,14 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 struct MyApp {
-    name: String,
-    age: usize,
+    zoom: usize,
 }
 
 const SUBTILE_ID: &str = "subtile";
 
 impl Default for MyApp {
     fn default() -> Self {
-        Self {
-            name: "Arthur".to_owned(),
-            age: 80,
-        }
+        Self { zoom: 80 }
     }
 }
 
@@ -72,7 +68,7 @@ fn tile_ui(ui: &mut egui::Ui, size: f32, on: &mut bool) -> egui::Response {
 
     if ui.is_rect_visible(rect) {
         let visuals = ui.style().interact_selectable(&response, *on);
-        let rect = rect.expand(visuals.expansion);
+        //        let rect = rect.expand(visuals.expansion);
         ui.painter()
             .rect(rect, 0.0, visuals.bg_fill, visuals.bg_stroke);
     }
@@ -152,7 +148,7 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Crabcassone");
-            ui.add(egui::Slider::new(&mut self.age, 40..=160).text("age"));
+            ui.add(egui::Slider::new(&mut self.zoom, 40..=160).text("age"));
             // if ui.button("Click each year").clicked() {
             //     self.age += 1;
             // }
@@ -160,34 +156,37 @@ impl eframe::App for MyApp {
             // ui.vertical(|ui| {
             //     board(ui, self.age, self.age, 0.2, vec2(20.0, 20.0));
             // });
-            let grid_rows = 3;
-            let grid_cols = 3;
-            let grid = egui::Grid::new("some_unique_id");
+            let grid_rows = 30;
+            let grid_cols = 30;
+            let grid = egui::Grid::new("some_unique_id").spacing(vec2(10.0, 10.0));
             // grid = grid.striped(true);
 
             // grid = grid.min_row_height(size);
             // grid = grid.min_col_width(size);
             // grid = grid.max_col_width(size);
-
-            grid.show(ui, |ui| {
-                for r in 0..grid_rows {
-                    for c in 0..grid_cols {
-                        let mut on = false;
-                        let response = ui
-                            .push_id((r, c), |ui| ui.add(tile(self.age as f32, &mut on)))
-                            .inner;
-                        response.ctx.data_mut(|map| {
-                            let subtile_id = Id::new(SUBTILE_ID);
-                            let maybe_val = map.get_temp::<String>(subtile_id);
-                            if let Some(val) = maybe_val {
-                                println!("{:?}", val);
+            egui::ScrollArea::both()
+                .drag_to_scroll(true)
+                .show(ui, |ui| {
+                    grid.show(ui, |ui| {
+                        for r in 0..grid_rows {
+                            for c in 0..grid_cols {
+                                let mut on = false;
+                                let response = ui
+                                    .push_id((r, c), |ui| ui.add(tile(self.zoom as f32, &mut on)))
+                                    .inner;
+                                response.ctx.data_mut(|map| {
+                                    let subtile_id = Id::new(SUBTILE_ID);
+                                    let maybe_val = map.get_temp::<String>(subtile_id);
+                                    if let Some(val) = maybe_val {
+                                        println!("{:?}", val);
+                                    }
+                                    map.remove::<String>(subtile_id);
+                                })
                             }
-                            map.remove::<String>(subtile_id);
-                        })
-                    }
-                    ui.end_row();
-                }
-            });
+                            ui.end_row();
+                        }
+                    });
+                });
 
             // ui.horizontal(|ui| {
             //     let name_label = ui.label("Your name: ");
