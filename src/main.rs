@@ -26,39 +26,6 @@ impl Default for MyApp {
     }
 }
 
-pub fn board(ui: &mut Ui, columns: usize, rows: usize, roundness: f32, spacing: egui::Vec2) {
-    let big_rect = ui.max_rect();
-    let top = big_rect.top();
-    let left = big_rect.left();
-
-    let bottom = big_rect.bottom();
-    let right = big_rect.right();
-
-    let h = (bottom - top) / (rows as f32);
-    let w = (right - left) / (columns as f32);
-
-    let border_color = Color32::RED;
-    ui.painter().rect(
-        big_rect,
-        0.0,
-        Color32::TRANSPARENT,
-        Stroke::new(1.0, border_color),
-    );
-
-    for r in 0..rows {
-        for c in 0..columns {
-            let pos = pos2(left + (c as f32) * w, top + (r as f32) * h);
-            let rect = Rect::from_min_size(pos, vec2(w, h));
-            ui.painter().rect(
-                rect,
-                0.,
-                Color32::from_gray(64),
-                Stroke::new(1., Color32::WHITE),
-            );
-        }
-    }
-}
-
 fn tile_ui(ui: &mut egui::Ui, size: f32, on: &mut bool) -> egui::Response {
     let (rect, mut response) = ui.allocate_exact_size(vec2(size, size), egui::Sense::click());
     if response.clicked() {
@@ -68,7 +35,6 @@ fn tile_ui(ui: &mut egui::Ui, size: f32, on: &mut bool) -> egui::Response {
 
     if ui.is_rect_visible(rect) {
         let visuals = ui.style().interact_selectable(&response, *on);
-        //        let rect = rect.expand(visuals.expansion);
         ui.painter()
             .rect(rect, 0.0, visuals.bg_fill, visuals.bg_stroke);
     }
@@ -149,17 +115,10 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Crabcassone");
             ui.add(egui::Slider::new(&mut self.zoom, 40..=160).text("age"));
-            // if ui.button("Click each year").clicked() {
-            //     self.age += 1;
-            // }
-            // ui.label(format!("Hello '{}', age {}", self.name, self.age));
-            // ui.vertical(|ui| {
-            //     board(ui, self.age, self.age, 0.2, vec2(20.0, 20.0));
-            // });
+
             let grid_rows = 30;
             let grid_cols = 30;
             let grid = egui::Grid::new("some_unique_id").spacing(vec2(10.0, 10.0));
-            // grid = grid.striped(true);
 
             // grid = grid.min_row_height(size);
             // grid = grid.min_col_width(size);
@@ -187,12 +146,6 @@ impl eframe::App for MyApp {
                         }
                     });
                 });
-
-            // ui.horizontal(|ui| {
-            //     let name_label = ui.label("Your name: ");
-            //     ui.text_edit_singleline(&mut self.name)
-            //         .labelled_by(name_label.id);
-            // });
         });
     }
 }
