@@ -13,5 +13,5 @@ enum MiniTile {
     Grass,
     Road,
     City,
-    Monistary,
+    Monastery,
 }
