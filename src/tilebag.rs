@@ -5,30 +5,48 @@ use crate::referee::{MiniTile, TileData};
 pub struct TileBag {
     data: Vec<TileData>,
     rng: ThreadRng,
-    is_first: bool,
+    next_idx: NextTileType,
+}
+
+enum NextTileType {
+    FirstTile(TileData),
+    BagTile(usize),
+    Empty,
 }
 
 impl TileBag {
+    pub fn peek(&self) -> Option<&TileData> {
+        match &self.next_idx {
+            NextTileType::FirstTile(tile) => Some(tile),
+            NextTileType::BagTile(idx) => Some(&self.data[*idx]),
+            NextTileType::Empty => None,
+        }
+    }
+
     pub fn pull(&mut self) -> Option<TileData> {
-        if self.is_first {
-            self.is_first = !self.is_first;
-            return Some(TileData {
-                top: MiniTile::City,
-                left: MiniTile::Road,
-                right: MiniTile::Road,
-                center: MiniTile::Road,
-                ..Default::default()
-            });
-        }
+        let out = match &self.next_idx {
+            NextTileType::FirstTile(tile) => Some(tile.clone()),
+            NextTileType::BagTile(idx) => Some(self.data.swap_remove(*idx)),
+            NextTileType::Empty => None,
+        };
+        self.pick_next_idx();
+        out
+    }
+
+    fn pick_next_idx(&mut self) {
         if self.data.is_empty() {
-            return None;
+            self.next_idx = NextTileType::Empty;
+        } else {
+            self.next_idx = NextTileType::BagTile(self.rng.gen_range(0..self.data.len()));
         }
-        let idx = self.rng.gen_range(0..self.data.len());
-        Some(self.data.swap_remove(idx))
     }
 
     pub fn count_remaining(&self) -> u32 {
-        let offset = if self.is_first { 1 } else { 0 };
+        let offset = if let NextTileType::FirstTile(_) = self.next_idx {
+            1
+        } else {
+            0
+        };
         self.data.len() as u32 + offset
     }
 }
@@ -310,7 +328,13 @@ impl Default for TileBag {
         TileBag {
             data,
             rng: rand::thread_rng(),
-            is_first: true,
+            next_idx: NextTileType::FirstTile(TileData {
+                top: MiniTile::City,
+                left: MiniTile::Road,
+                right: MiniTile::Road,
+                center: MiniTile::Road,
+                ..Default::default()
+            }),
         }
     }
 }
@@ -324,6 +348,8 @@ mod tests {
         let mut bag = TileBag::default();
         assert_eq!(bag.count_remaining(), 72);
         bag.pull();
+        assert_eq!(bag.count_remaining(), 71);
+        bag.peek();
         assert_eq!(bag.count_remaining(), 71);
     }
 
