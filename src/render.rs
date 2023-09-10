@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use eframe::egui;
 use egui::{pos2, vec2, Color32, Id, Rect};
 
-use crate::referee::{Board, PlacedTile};
+use crate::referee::{Board, PlacedTile, TileClickTarget};
 
 pub enum Message {
     PrintMessage(String),
@@ -40,9 +40,9 @@ fn tile_ui(ui: &mut egui::Ui, size: f32, tile: &Option<PlacedTile>) -> egui::Res
             .rect(rect, 0.0, default_color, visuals.bg_stroke);
     }
 
-    let get_color = |location: usize| {
+    let get_color = |location: TileClickTarget| {
         if let Some(place_tile) = tile {
-            return place_tile.data[location].getColor();
+            return place_tile.at(location).get_color();
         }
         return default_color;
     };
@@ -58,31 +58,31 @@ fn tile_ui(ui: &mut egui::Ui, size: f32, tile: &Option<PlacedTile>) -> egui::Res
             dx: 0,
             dy: 0,
             id: "center".to_owned(),
-            color: get_color(2),
+            color: get_color(TileClickTarget::Center),
         },
         SquareDef {
             dx: -1,
             dy: 0,
             id: "left".to_owned(),
-            color: get_color(1),
+            color: get_color(TileClickTarget::Left),
         },
         SquareDef {
             dx: 1,
             dy: 0,
             id: "right".to_owned(),
-            color: get_color(3),
+            color: get_color(TileClickTarget::Right),
         },
         SquareDef {
             dx: 0,
             dy: -1,
             id: "top".to_owned(),
-            color: get_color(0),
+            color: get_color(TileClickTarget::Top),
         },
         SquareDef {
             dx: 0,
             dy: 1,
             id: "bottom".to_owned(),
-            color: get_color(4),
+            color: get_color(TileClickTarget::Bottom),
         },
     ];
 
@@ -151,7 +151,6 @@ impl eframe::App for MyApp {
                     grid.show(ui, |ui| {
                         for r in 0..grid_rows {
                             for c in 0..grid_cols {
-                                let mut on = false;
                                 let response = ui
                                     .push_id((r, c), |ui| {
                                         ui.add(tile(self.zoom as f32, self.board.at(r, c)))

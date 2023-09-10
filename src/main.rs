@@ -22,5 +22,6 @@ fn main() {
         "Crabcassonne",
         options,
         Box::new(|_cc| Box::new(MyApp::create(sender, board_receiver))),
-    );
+    )
+    .unwrap();
 }

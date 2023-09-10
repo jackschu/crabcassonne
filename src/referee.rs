@@ -8,7 +8,7 @@ const BOARD_DIM: usize = 72;
 const BOARD_SIZE: usize = BOARD_DIM * BOARD_DIM;
 
 pub struct Board {
-    data: [Option<PlacedTile>; BOARD_SIZE],
+    data: Vec<Option<PlacedTile>>,
 }
 
 impl Board {
@@ -20,7 +20,8 @@ impl Board {
 impl Default for Board {
     fn default() -> Self {
         Board {
-            data: [None; BOARD_SIZE],
+            data: vec![None; BOARD_SIZE],
+            //            data:
         }
     }
 }
@@ -30,6 +31,27 @@ pub struct PlacedTile {
     pub has_emblem: bool,
     // [top, left, center, right, bottom]
     pub data: [MiniTile; 5],
+}
+
+impl PlacedTile {
+    pub fn at(&self, target: TileClickTarget) -> &MiniTile {
+        let idx = match target {
+            TileClickTarget::Top => 0,
+            TileClickTarget::Left => 1,
+            TileClickTarget::Center => 2,
+            TileClickTarget::Right => 3,
+            TileClickTarget::Bottom => 4,
+        };
+        return &self.data[idx];
+    }
+}
+
+pub enum TileClickTarget {
+    Top,
+    Left,
+    Center,
+    Right,
+    Bottom,
 }
 
 #[derive(Copy, Clone)]
@@ -42,7 +64,7 @@ pub enum MiniTile {
 }
 
 impl MiniTile {
-    pub fn getColor(&self) -> Color32 {
+    pub fn get_color(&self) -> Color32 {
         match self {
             Self::Grass => Color32::GREEN,
             Self::Road => Color32::WHITE,
