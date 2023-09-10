@@ -14,13 +14,13 @@ pub struct Board {
 
 impl Board {
     pub fn at(&self, row: usize, col: usize) -> &Option<PlacedTile> {
-        return &self.data[BOARD_DIM * col + row];
+        &self.data[BOARD_DIM * col + row]
     }
     pub fn at_mut(&mut self, row: usize, col: usize) -> &mut Option<PlacedTile> {
-        return &mut self.data[BOARD_DIM * col + row];
+        &mut self.data[BOARD_DIM * col + row]
     }
     pub fn set(&mut self, row: usize, col: usize, tile: Option<PlacedTile>) {
-        return self.data[BOARD_DIM * col + row] = tile;
+        self.data[BOARD_DIM * col + row] = tile
     }
 }
 
@@ -28,7 +28,6 @@ impl Default for Board {
     fn default() -> Self {
         Board {
             data: vec![None; BOARD_SIZE],
-            //            data:
         }
     }
 }
@@ -36,8 +35,8 @@ impl Default for Board {
 #[derive(Clone)]
 pub struct PlacedTile {
     pub has_emblem: bool,
-    // [top, left, center, right, bottom]
-    pub data: [MiniTile; 5],
+    // index using mini tile
+    data: [MiniTile; 5],
 }
 
 impl PlacedTile {
@@ -49,7 +48,7 @@ impl PlacedTile {
             TileClickTarget::Right => 3,
             TileClickTarget::Bottom => 4,
         };
-        return &self.data[idx];
+        &self.data[idx]
     }
 
     pub fn create_grass() -> Self {
@@ -75,7 +74,7 @@ pub enum TileClickTarget {
     Bottom,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub enum MiniTile {
     Grass,
     Road,

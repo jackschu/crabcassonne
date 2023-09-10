@@ -57,7 +57,7 @@ fn tile_ui(
         if let Some(place_tile) = tile {
             return place_tile.at(location).get_color();
         }
-        return default_color;
+        default_color
     };
 
     struct SquareDef {
@@ -125,7 +125,7 @@ fn tile_ui(
         }
     }
 
-    return response;
+    response
 }
 
 fn rect_button(ui: &mut egui::Ui, rect: Rect, id: Id, color: Color32) -> egui::Response {
@@ -144,13 +144,8 @@ fn tile(size: f32, tile: &Option<PlacedTile>, row: usize, column: usize) -> impl
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        loop {
-            match self.board_channel.try_recv() {
-                Ok(board) => self.board = board,
-                Err(_) => {
-                    break;
-                }
-            }
+        while let Ok(board) = self.board_channel.try_recv() {
+            self.board = board
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
