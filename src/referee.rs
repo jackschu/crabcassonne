@@ -6,7 +6,10 @@ use std::{
 
 use egui::Color32;
 
-use crate::{render::Message, tilebag::TileBag};
+use crate::{
+    render::{InteractionMessage, RenderMessage},
+    tilebag::TileBag,
+};
 
 pub const BOARD_DIM: usize = 72;
 const BOARD_SIZE: usize = BOARD_DIM * BOARD_DIM;
@@ -92,8 +95,7 @@ pub enum TileClickTarget {
     Bottom,
 }
 
-#[derive(Clone)]
-#[derive(Default)]
+#[derive(Clone, Default, Eq, PartialEq)]
 pub enum MiniTile {
     #[default]
     Grass,
@@ -102,8 +104,6 @@ pub enum MiniTile {
     Monastery,
     Junction,
 }
-
-
 
 impl MiniTile {
     pub fn get_color(&self) -> Color32 {
@@ -117,16 +117,21 @@ impl MiniTile {
     }
 }
 
-pub fn referee_main(receiver: Receiver<Message>, sender: Sender<Board>) {
+pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<RenderMessage>) {
     let mut board = Board::default();
     let mut tilebag = TileBag::default();
+    if let Some(tile) = tilebag.peek() {
+        sender
+            .send(RenderMessage::PreviewTile(tile.clone()))
+            .unwrap();
+    }
     loop {
-        sender.send(board.clone()).unwrap();
+        sender.send(RenderMessage::NewBoard(board.clone())).unwrap();
         match receiver.recv().unwrap() {
-            Message::Print(message) => {
+            InteractionMessage::Print(message) => {
                 println!("recv {}", message);
             }
-            Message::Click(message) => {
+            InteractionMessage::Click(message) => {
                 if board.tiles_placed() != 0 {
                     let legal_tiles = board.get_legal_tiles();
                     if !legal_tiles.contains(&(message.row, message.column)) {
@@ -137,6 +142,11 @@ pub fn referee_main(receiver: Receiver<Message>, sender: Sender<Board>) {
                     board.set(message.row, message.column, tile);
                 } else {
                     println!("out of tiles");
+                }
+                if let Some(tile) = tilebag.peek() {
+                    sender
+                        .send(RenderMessage::PreviewTile(tile.clone()))
+                        .unwrap();
                 }
             }
         }

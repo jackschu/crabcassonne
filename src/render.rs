@@ -1,7 +1,7 @@
 use std::sync::mpsc::{Receiver, Sender};
 
 use eframe::egui;
-use egui::{pos2, vec2, Color32, Id, Rect};
+use egui::{pos2, vec2, Color32, Id, Rect, Stroke};
 
 use crate::referee::{Board, MiniTile, TileClickTarget, TileData, BOARD_DIM};
 
@@ -11,27 +11,38 @@ pub struct ClickMessage {
     pub column: usize,
     pub location: TileClickTarget,
 }
-pub enum Message {
+
+pub enum InteractionMessage {
     Print(String),
     Click(ClickMessage),
+}
+
+pub enum RenderMessage {
+    NewBoard(Board),
+    PreviewTile(TileData),
 }
 
 pub struct MyApp {
     zoom: usize,
     board: Board,
-    pub output_channel: Sender<Message>,
-    pub board_channel: Receiver<Board>,
+    preview_tile: Option<TileData>,
+    pub output_channel: Sender<InteractionMessage>,
+    pub input_channel: Receiver<RenderMessage>,
 }
 
 const SUBTILE_ID: &str = "subtile";
 
 impl MyApp {
-    pub fn create(output_channel: Sender<Message>, board_channel: Receiver<Board>) -> Self {
+    pub fn create(
+        output_channel: Sender<InteractionMessage>,
+        board_channel: Receiver<RenderMessage>,
+    ) -> Self {
         Self {
             zoom: 80,
             board: Board::default(),
+            preview_tile: None,
             output_channel,
-            board_channel,
+            input_channel: board_channel,
         }
     }
 }
@@ -42,46 +53,13 @@ fn tile_ui(
     tile: Option<&TileData>,
     row: usize,
     column: usize,
+    preview_tile: &Option<TileData>,
 ) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(vec2(size, size), egui::Sense::click());
 
     let default_color = match tile {
         Some(_) => MiniTile::get_color(&MiniTile::Grass),
         None => Color32::GRAY,
-    };
-
-    if ui.is_rect_visible(rect) {
-        let visuals = ui.style().interact(&response);
-        ui.painter()
-            .rect(rect, 0.0, default_color, visuals.bg_stroke);
-    }
-
-    if response.clicked() {
-        response.ctx.data_mut(|map| {
-            let id = Id::new(SUBTILE_ID);
-            map.insert_temp::<ClickMessage>(
-                id,
-                ClickMessage {
-                    row,
-                    column,
-                    location: TileClickTarget::Center,
-                },
-            );
-        });
-    }
-
-    if tile.is_none() {
-        return response;
-    }
-
-    let get_color = |location: &TileClickTarget| {
-        if let Some(place_tile) = tile {
-            if place_tile.secondary_center.is_some() && location == &TileClickTarget::Center {
-                return Color32::LIGHT_BLUE; // FIXME need to dual color here
-            }
-            return place_tile.at(location).get_color();
-        }
-        default_color
     };
 
     struct SquareDef {
@@ -120,6 +98,70 @@ fn tile_ui(
     let center = rect.center();
     let mini_size = size / 3.0;
 
+    let get_color =
+        |location: &TileClickTarget, tile: Option<&TileData>, transparent_grass: bool| {
+            if let Some(place_tile) = tile {
+                if place_tile.secondary_center.is_some() && location == &TileClickTarget::Center {
+                    return Color32::LIGHT_BLUE; // FIXME need to dual color here
+                }
+                let tile_type = place_tile.at(location);
+                if transparent_grass && tile_type == &MiniTile::Grass {
+                    return Color32::TRANSPARENT;
+                }
+                return tile_type.get_color();
+            }
+            default_color
+        };
+
+    if ui.is_rect_visible(rect) {
+        let visuals = ui.style().interact(&response);
+        let preview_tile = if response.hovered() && tile.is_none() {
+            preview_tile
+        } else {
+            &None
+        };
+        if let Some(tile) = preview_tile {
+            let grass = MiniTile::get_color(&MiniTile::Grass);
+            ui.painter()
+                .rect(rect, 0.0, grass.gamma_multiply(0.5), visuals.bg_stroke);
+            for def in &square_defns {
+                let mini_rect = Rect::from_center_size(
+                    pos2(
+                        center.x + (def.dx as f32) * mini_size,
+                        center.y + (def.dy as f32) * mini_size,
+                    ),
+                    vec2(mini_size, mini_size),
+                );
+                rect_paint(
+                    ui,
+                    mini_rect,
+                    get_color(&def.target, Some(tile), true).gamma_multiply(0.5),
+                );
+            }
+        } else {
+            ui.painter()
+                .rect(rect, 0.0, default_color, visuals.bg_stroke);
+        }
+    }
+
+    if response.clicked() {
+        response.ctx.data_mut(|map| {
+            let id = Id::new(SUBTILE_ID);
+            map.insert_temp::<ClickMessage>(
+                id,
+                ClickMessage {
+                    row,
+                    column,
+                    location: TileClickTarget::Center,
+                },
+            );
+        });
+    }
+
+    if tile.is_none() {
+        return response;
+    }
+
     for def in square_defns {
         let mini_rect = Rect::from_center_size(
             pos2(
@@ -132,7 +174,7 @@ fn tile_ui(
             ui,
             mini_rect,
             ui.id().with(&def.target),
-            get_color(&def.target),
+            get_color(&def.target, tile, false),
         );
         if mini_response.clicked() {
             response.ctx.data_mut(|map| {
@@ -152,6 +194,12 @@ fn tile_ui(
     response
 }
 
+fn rect_paint(ui: &mut egui::Ui, rect: Rect, color: Color32) {
+    if ui.is_rect_visible(rect) {
+        ui.painter().rect(rect, 0.0, color, Stroke::NONE);
+    }
+}
+
 fn rect_button(ui: &mut egui::Ui, rect: Rect, id: Id, color: Color32) -> egui::Response {
     let response = ui.interact(rect, id, egui::Sense::click());
     let visuals = ui.style().interact(&response);
@@ -162,19 +210,23 @@ fn rect_button(ui: &mut egui::Ui, rect: Rect, id: Id, color: Color32) -> egui::R
     response
 }
 
-fn tile(
+fn tile<'a>(
     size: f32,
-    tile: Option<&TileData>,
+    tile: Option<&'a TileData>,
     row: usize,
     column: usize,
-) -> impl egui::Widget + '_ {
-    move |ui: &mut egui::Ui| tile_ui(ui, size, tile, row, column)
+    preview_tile: &'a Option<TileData>,
+) -> impl egui::Widget + 'a {
+    move |ui: &mut egui::Ui| tile_ui(ui, size, tile, row, column, preview_tile)
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        while let Ok(board) = self.board_channel.try_recv() {
-            self.board = board
+        while let Ok(message) = self.input_channel.try_recv() {
+            match message {
+                RenderMessage::NewBoard(board) => self.board = board,
+                RenderMessage::PreviewTile(tile) => self.preview_tile = Some(tile),
+            }
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -196,14 +248,22 @@ impl eframe::App for MyApp {
                             for c in 0..grid_cols {
                                 let response = ui
                                     .push_id((r, c), |ui| {
-                                        ui.add(tile(self.zoom as f32, self.board.at(r, c), r, c))
+                                        ui.add(tile(
+                                            self.zoom as f32,
+                                            self.board.at(r, c),
+                                            r,
+                                            c,
+                                            &self.preview_tile,
+                                        ))
                                     })
                                     .inner;
                                 response.ctx.data_mut(|map| {
                                     let subtile_id = Id::new(SUBTILE_ID);
                                     let maybe_val = map.get_temp::<ClickMessage>(subtile_id);
                                     if let Some(val) = maybe_val {
-                                        self.output_channel.send(Message::Click(val)).unwrap();
+                                        self.output_channel
+                                            .send(InteractionMessage::Click(val))
+                                            .unwrap();
                                     }
                                     map.remove::<ClickMessage>(subtile_id);
                                 })
