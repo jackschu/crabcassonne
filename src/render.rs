@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use eframe::egui;
 use egui::{pos2, vec2, Color32, Id, Rect};
 
-use crate::referee::{Board, PlacedTile, TileClickTarget};
+use crate::referee::{Board, MiniTile, PlacedTile, TileClickTarget};
 
 #[derive(Clone)]
 pub struct ClickMessage {
@@ -45,7 +45,10 @@ fn tile_ui(
 ) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(vec2(size, size), egui::Sense::click());
 
-    let default_color = Color32::GRAY;
+    let default_color = match tile {
+        Some(_) => MiniTile::get_color(&MiniTile::Grass),
+        None => Color32::GRAY,
+    };
 
     if ui.is_rect_visible(rect) {
         let visuals = ui.style().interact(&response);
@@ -55,6 +58,11 @@ fn tile_ui(
 
     let get_color = |location: &TileClickTarget| {
         if let Some(place_tile) = tile {
+            if let Some(_) = place_tile.secondary_center {
+                if location == &TileClickTarget::Center {
+                    return Color32::LIGHT_BLUE; // FIXME need to dual color here
+                }
+            }
             return place_tile.at(location).get_color();
         }
         default_color
@@ -176,7 +184,7 @@ impl eframe::App for MyApp {
                                     if let Some(val) = maybe_val {
                                         self.output_channel.send(Message::Click(val)).unwrap();
                                     }
-                                    map.remove::<String>(subtile_id);
+                                    map.remove::<ClickMessage>(subtile_id);
                                 })
                             }
                             ui.end_row();

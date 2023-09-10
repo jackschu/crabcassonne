@@ -2,7 +2,7 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use egui::Color32;
 
-use crate::render::Message;
+use crate::{render::Message, tilebag::TileBag};
 
 const BOARD_DIM: usize = 72;
 const BOARD_SIZE: usize = BOARD_DIM * BOARD_DIM;
@@ -32,40 +32,30 @@ impl Default for Board {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct PlacedTile {
     pub has_emblem: bool,
-    // index using mini tile
-    data: [MiniTile; 5],
+    pub top: MiniTile,
+    pub left: MiniTile,
+    pub center: MiniTile,
+    pub secondary_center: Option<MiniTile>,
+    pub right: MiniTile,
+    pub bottom: MiniTile,
 }
 
 impl PlacedTile {
     pub fn at(&self, target: &TileClickTarget) -> &MiniTile {
-        let idx = match target {
-            TileClickTarget::Top => 0,
-            TileClickTarget::Left => 1,
-            TileClickTarget::Center => 2,
-            TileClickTarget::Right => 3,
-            TileClickTarget::Bottom => 4,
-        };
-        &self.data[idx]
-    }
-
-    pub fn create_grass() -> Self {
-        PlacedTile {
-            has_emblem: false,
-            data: [
-                MiniTile::Grass,
-                MiniTile::Grass,
-                MiniTile::Grass,
-                MiniTile::Grass,
-                MiniTile::Grass,
-            ],
+        match target {
+            TileClickTarget::Top => &self.top,
+            TileClickTarget::Left => &self.left,
+            TileClickTarget::Center => &self.center,
+            TileClickTarget::Right => &self.right,
+            TileClickTarget::Bottom => &self.bottom,
         }
     }
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum TileClickTarget {
     Top,
     Left,
@@ -83,12 +73,18 @@ pub enum MiniTile {
     Junction,
 }
 
+impl Default for MiniTile {
+    fn default() -> Self {
+        MiniTile::Grass
+    }
+}
+
 impl MiniTile {
     pub fn get_color(&self) -> Color32 {
         match self {
-            Self::Grass => Color32::GREEN,
+            Self::Grass => Color32::from_rgb(0, 188, 84),
             Self::Road => Color32::WHITE,
-            Self::City => Color32::BROWN,
+            Self::City => Color32::from_rgb(205, 137, 48),
             Self::Monastery => Color32::RED,
             Self::Junction => Color32::YELLOW,
         }
@@ -97,7 +93,7 @@ impl MiniTile {
 
 pub fn referee_main(receiver: Receiver<Message>, sender: Sender<Board>) {
     let mut board = Board::default();
-    board.data[0] = Some(PlacedTile::create_grass());
+    let mut tilebag = TileBag::default();
     loop {
         sender.send(board.clone()).unwrap();
         match receiver.recv().unwrap() {
@@ -105,11 +101,7 @@ pub fn referee_main(receiver: Receiver<Message>, sender: Sender<Board>) {
                 println!("recv {}", message);
             }
             Message::Click(message) => {
-                board.set(
-                    message.row,
-                    message.column,
-                    Some(PlacedTile::create_grass()),
-                );
+                board.set(message.row, message.column, Some(tilebag.pull()));
             }
         }
     }
