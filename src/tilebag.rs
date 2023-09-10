@@ -9,19 +9,27 @@ pub struct TileBag {
 }
 
 impl TileBag {
-    pub fn pull(&mut self) -> TileData {
+    pub fn pull(&mut self) -> Option<TileData> {
         if self.is_first {
             self.is_first = !self.is_first;
-            return TileData {
+            return Some(TileData {
                 top: MiniTile::City,
                 left: MiniTile::Road,
                 right: MiniTile::Road,
                 center: MiniTile::Road,
                 ..Default::default()
-            };
+            });
+        }
+        if self.data.len() == 0 {
+            return None;
         }
         let idx = self.rng.gen_range(0..self.data.len());
-        self.data.swap_remove(idx)
+        Some(self.data.swap_remove(idx))
+    }
+
+    pub fn count_remaining(&self) -> u32 {
+        let offset = if self.is_first { 1 } else { 0 };
+        self.data.len() as u32 + offset
     }
 }
 
@@ -300,12 +308,33 @@ impl Default for TileBag {
             1
         ]);
 
-        assert_eq!(data.len(), 71);
-
         TileBag {
             data,
             rng: rand::thread_rng(),
             is_first: true,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_count() {
+        let mut bag = TileBag::default();
+        assert_eq!(bag.count_remaining(), 72);
+        bag.pull();
+        assert_eq!(bag.count_remaining(), 71);
+    }
+
+    #[test]
+    fn check_empties() {
+        let mut bag = TileBag::default();
+        let mut ct = 1_000_000;
+        while let Some(_) = bag.pull() {
+            ct -= 1;
+            assert!(ct > 0)
         }
     }
 }
