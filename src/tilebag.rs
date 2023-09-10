@@ -15,7 +15,7 @@ impl TileBag {
             return TileData {
                 top: MiniTile::City,
                 left: MiniTile::Road,
-                bottom: MiniTile::Road,
+                right: MiniTile::Road,
                 center: MiniTile::Road,
                 ..Default::default()
             };
