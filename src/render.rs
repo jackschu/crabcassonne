@@ -3,15 +3,19 @@ use std::sync::mpsc::Sender;
 use eframe::egui;
 use egui::{pos2, vec2, Id, Rect};
 
+pub enum Message {
+    PrintMessage(String),
+}
+
 pub struct MyApp {
     zoom: usize,
-    pub output_channel: Sender<String>,
+    pub output_channel: Sender<Message>,
 }
 
 const SUBTILE_ID: &str = "subtile";
 
 impl MyApp {
-    pub fn create(output_channel: Sender<String>) -> Self {
+    pub fn create(output_channel: Sender<Message>) -> Self {
         Self {
             zoom: 80,
             output_channel,
@@ -130,7 +134,9 @@ impl eframe::App for MyApp {
                                     let subtile_id = Id::new(SUBTILE_ID);
                                     let maybe_val = map.get_temp::<String>(subtile_id);
                                     if let Some(val) = maybe_val {
-                                        self.output_channel.send(val).unwrap();
+                                        self.output_channel
+                                            .send(Message::PrintMessage(val))
+                                            .unwrap();
                                     }
                                     map.remove::<String>(subtile_id);
                                 })

@@ -1,16 +1,16 @@
 use std::{sync::mpsc::channel, thread};
 
-use crabcassonne::render::MyApp;
+use crabcassonne::{
+    referee::referee_main,
+    render::{Message, MyApp},
+};
 
 fn main() {
     //    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
-    let (sender, receiver) = channel::<String>();
+    let (sender, receiver) = channel::<Message>();
 
-    thread::spawn(move || loop {
-        let message = receiver.recv().unwrap();
-        println!("recv {}", message);
-    });
+    thread::spawn(move || referee_main(receiver));
 
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1600.0, 900.0)),
