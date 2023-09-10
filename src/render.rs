@@ -76,10 +76,8 @@ fn tile_ui(
 
     let get_color = |location: &TileClickTarget| {
         if let Some(place_tile) = tile {
-            if let Some(_) = place_tile.secondary_center {
-                if location == &TileClickTarget::Center {
-                    return Color32::LIGHT_BLUE; // FIXME need to dual color here
-                }
+            if place_tile.secondary_center.is_some() && location == &TileClickTarget::Center {
+                return Color32::LIGHT_BLUE; // FIXME need to dual color here
             }
             return place_tile.at(location).get_color();
         }
@@ -164,12 +162,12 @@ fn rect_button(ui: &mut egui::Ui, rect: Rect, id: Id, color: Color32) -> egui::R
     response
 }
 
-fn tile<'a>(
+fn tile(
     size: f32,
-    tile: Option<&'a TileData>,
+    tile: Option<&TileData>,
     row: usize,
     column: usize,
-) -> impl egui::Widget + 'a {
+) -> impl egui::Widget + '_ {
     move |ui: &mut egui::Ui| tile_ui(ui, size, tile, row, column)
 }
 

@@ -36,7 +36,6 @@ impl Board {
         let output: HashSet<(usize, usize)> = self
             .data
             .keys()
-            .into_iter()
             .flat_map(|tile| -> HashSet<(usize, usize)> {
                 deltas
                     .iter()
@@ -52,12 +51,12 @@ impl Board {
                         if self.at(row as usize, col as usize).is_some() {
                             return None;
                         }
-                        return Some((row as usize, col as usize));
+                        Some((row as usize, col as usize))
                     })
                     .collect()
             })
             .collect();
-        return output;
+        output
     }
 }
 
@@ -94,7 +93,9 @@ pub enum TileClickTarget {
 }
 
 #[derive(Clone)]
+#[derive(Default)]
 pub enum MiniTile {
+    #[default]
     Grass,
     Road,
     City,
@@ -102,11 +103,7 @@ pub enum MiniTile {
     Junction,
 }
 
-impl Default for MiniTile {
-    fn default() -> Self {
-        MiniTile::Grass
-    }
-}
+
 
 impl MiniTile {
     pub fn get_color(&self) -> Color32 {

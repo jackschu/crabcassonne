@@ -20,7 +20,7 @@ impl TileBag {
                 ..Default::default()
             });
         }
-        if self.data.len() == 0 {
+        if self.data.is_empty() {
             return None;
         }
         let idx = self.rng.gen_range(0..self.data.len());
@@ -263,7 +263,6 @@ impl Default for TileBag {
                 bottom: MiniTile::Road,
                 left: MiniTile::Road,
                 center: MiniTile::Road,
-                ..Default::default()
             };
             2
         ]);
@@ -332,7 +331,7 @@ mod tests {
     fn check_empties() {
         let mut bag = TileBag::default();
         let mut ct = 1_000_000;
-        while let Some(_) = bag.pull() {
+        while bag.pull().is_some() {
             ct -= 1;
             assert!(ct > 0)
         }
