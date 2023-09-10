@@ -5,8 +5,15 @@ use egui::{pos2, vec2, Color32, Id, Rect};
 
 use crate::referee::{Board, PlacedTile, TileClickTarget};
 
+#[derive(Clone)]
+pub struct ClickMessage {
+    pub row: usize,
+    pub column: usize,
+    pub location: TileClickTarget,
+}
 pub enum Message {
-    PrintMessage(String),
+    Print(String),
+    Click(ClickMessage),
 }
 
 pub struct MyApp {
@@ -29,7 +36,13 @@ impl MyApp {
     }
 }
 
-fn tile_ui(ui: &mut egui::Ui, size: f32, tile: &Option<PlacedTile>) -> egui::Response {
+fn tile_ui(
+    ui: &mut egui::Ui,
+    size: f32,
+    tile: &Option<PlacedTile>,
+    row: usize,
+    column: usize,
+) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(vec2(size, size), egui::Sense::click());
 
     let default_color = Color32::GRAY;
@@ -40,7 +53,7 @@ fn tile_ui(ui: &mut egui::Ui, size: f32, tile: &Option<PlacedTile>) -> egui::Res
             .rect(rect, 0.0, default_color, visuals.bg_stroke);
     }
 
-    let get_color = |location: TileClickTarget| {
+    let get_color = |location: &TileClickTarget| {
         if let Some(place_tile) = tile {
             return place_tile.at(location).get_color();
         }
@@ -50,39 +63,33 @@ fn tile_ui(ui: &mut egui::Ui, size: f32, tile: &Option<PlacedTile>) -> egui::Res
     struct SquareDef {
         pub dx: i8,
         pub dy: i8,
-        pub id: String,
-        pub color: Color32,
+        pub target: TileClickTarget,
     }
     let square_defns = [
         SquareDef {
             dx: 0,
             dy: 0,
-            id: "center".to_owned(),
-            color: get_color(TileClickTarget::Center),
+            target: TileClickTarget::Center,
         },
         SquareDef {
             dx: -1,
             dy: 0,
-            id: "left".to_owned(),
-            color: get_color(TileClickTarget::Left),
+            target: TileClickTarget::Left,
         },
         SquareDef {
             dx: 1,
             dy: 0,
-            id: "right".to_owned(),
-            color: get_color(TileClickTarget::Right),
+            target: TileClickTarget::Right,
         },
         SquareDef {
             dx: 0,
             dy: -1,
-            id: "top".to_owned(),
-            color: get_color(TileClickTarget::Top),
+            target: TileClickTarget::Top,
         },
         SquareDef {
             dx: 0,
             dy: 1,
-            id: "bottom".to_owned(),
-            color: get_color(TileClickTarget::Bottom),
+            target: TileClickTarget::Bottom,
         },
     ];
 
@@ -97,11 +104,23 @@ fn tile_ui(ui: &mut egui::Ui, size: f32, tile: &Option<PlacedTile>) -> egui::Res
             ),
             vec2(mini_size, mini_size),
         );
-        let mini_response = rect_button(ui, mini_rect, ui.id().with(def.id.as_str()), def.color);
+        let mini_response = rect_button(
+            ui,
+            mini_rect,
+            ui.id().with(&def.target),
+            get_color(&def.target),
+        );
         if mini_response.clicked() {
             response.ctx.data_mut(|map| {
                 let id = Id::new(SUBTILE_ID);
-                map.insert_temp::<String>(id, def.id);
+                map.insert_temp::<ClickMessage>(
+                    id,
+                    ClickMessage {
+                        row,
+                        column,
+                        location: def.target,
+                    },
+                );
             });
         }
     }
@@ -119,8 +138,8 @@ fn rect_button(ui: &mut egui::Ui, rect: Rect, id: Id, color: Color32) -> egui::R
     response
 }
 
-fn tile(size: f32, tile: &Option<PlacedTile>) -> impl egui::Widget + '_ {
-    move |ui: &mut egui::Ui| tile_ui(ui, size, tile)
+fn tile(size: f32, tile: &Option<PlacedTile>, row: usize, column: usize) -> impl egui::Widget + '_ {
+    move |ui: &mut egui::Ui| tile_ui(ui, size, tile, row, column)
 }
 
 impl eframe::App for MyApp {
@@ -153,16 +172,14 @@ impl eframe::App for MyApp {
                             for c in 0..grid_cols {
                                 let response = ui
                                     .push_id((r, c), |ui| {
-                                        ui.add(tile(self.zoom as f32, self.board.at(r, c)))
+                                        ui.add(tile(self.zoom as f32, self.board.at(r, c), r, c))
                                     })
                                     .inner;
                                 response.ctx.data_mut(|map| {
                                     let subtile_id = Id::new(SUBTILE_ID);
-                                    let maybe_val = map.get_temp::<String>(subtile_id);
+                                    let maybe_val = map.get_temp::<ClickMessage>(subtile_id);
                                     if let Some(val) = maybe_val {
-                                        self.output_channel
-                                            .send(Message::PrintMessage(val))
-                                            .unwrap();
+                                        self.output_channel.send(Message::Click(val)).unwrap();
                                     }
                                     map.remove::<String>(subtile_id);
                                 })

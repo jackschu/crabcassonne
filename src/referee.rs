@@ -7,6 +7,7 @@ use crate::render::Message;
 const BOARD_DIM: usize = 72;
 const BOARD_SIZE: usize = BOARD_DIM * BOARD_DIM;
 
+#[derive(Clone)]
 pub struct Board {
     data: Vec<Option<PlacedTile>>,
 }
@@ -14,6 +15,12 @@ pub struct Board {
 impl Board {
     pub fn at(&self, row: usize, col: usize) -> &Option<PlacedTile> {
         return &self.data[BOARD_DIM * col + row];
+    }
+    pub fn at_mut(&mut self, row: usize, col: usize) -> &mut Option<PlacedTile> {
+        return &mut self.data[BOARD_DIM * col + row];
+    }
+    pub fn set(&mut self, row: usize, col: usize, tile: Option<PlacedTile>) {
+        return self.data[BOARD_DIM * col + row] = tile;
     }
 }
 
@@ -26,7 +33,7 @@ impl Default for Board {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct PlacedTile {
     pub has_emblem: bool,
     // [top, left, center, right, bottom]
@@ -34,7 +41,7 @@ pub struct PlacedTile {
 }
 
 impl PlacedTile {
-    pub fn at(&self, target: TileClickTarget) -> &MiniTile {
+    pub fn at(&self, target: &TileClickTarget) -> &MiniTile {
         let idx = match target {
             TileClickTarget::Top => 0,
             TileClickTarget::Left => 1,
@@ -44,8 +51,22 @@ impl PlacedTile {
         };
         return &self.data[idx];
     }
+
+    pub fn create_grass() -> Self {
+        PlacedTile {
+            has_emblem: false,
+            data: [
+                MiniTile::Grass,
+                MiniTile::Grass,
+                MiniTile::Grass,
+                MiniTile::Grass,
+                MiniTile::Grass,
+            ],
+        }
+    }
 }
 
+#[derive(Clone, Hash)]
 pub enum TileClickTarget {
     Top,
     Left,
@@ -77,21 +98,19 @@ impl MiniTile {
 
 pub fn referee_main(receiver: Receiver<Message>, sender: Sender<Board>) {
     let mut board = Board::default();
-    board.data[0] = Some(PlacedTile {
-        has_emblem: false,
-        data: [
-            MiniTile::Grass,
-            MiniTile::Grass,
-            MiniTile::Grass,
-            MiniTile::Grass,
-            MiniTile::Grass,
-        ],
-    });
-    sender.send(board).unwrap();
+    board.data[0] = Some(PlacedTile::create_grass());
     loop {
+        sender.send(board.clone()).unwrap();
         match receiver.recv().unwrap() {
-            Message::PrintMessage(message) => {
-                println!("recv {}", message)
+            Message::Print(message) => {
+                println!("recv {}", message);
+            }
+            Message::Click(message) => {
+                board.set(
+                    message.row,
+                    message.column,
+                    Some(PlacedTile::create_grass()),
+                );
             }
         }
     }
