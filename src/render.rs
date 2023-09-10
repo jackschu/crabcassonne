@@ -1,7 +1,9 @@
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Receiver, Sender};
 
 use eframe::egui;
 use egui::{pos2, vec2, Id, Rect};
+
+use crate::referee::Board;
 
 pub enum Message {
     PrintMessage(String),
@@ -9,16 +11,20 @@ pub enum Message {
 
 pub struct MyApp {
     zoom: usize,
+    board: Board,
     pub output_channel: Sender<Message>,
+    pub board_channel: Receiver<Board>,
 }
 
 const SUBTILE_ID: &str = "subtile";
 
 impl MyApp {
-    pub fn create(output_channel: Sender<Message>) -> Self {
+    pub fn create(output_channel: Sender<Message>, board_channel: Receiver<Board>) -> Self {
         Self {
             zoom: 80,
+            board: Board::default(),
             output_channel,
+            board_channel,
         }
     }
 }
@@ -109,6 +115,15 @@ fn tile(size: f32, on: &mut bool) -> impl egui::Widget + '_ {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        loop {
+            match self.board_channel.try_recv() {
+                Ok(board) => self.board = board,
+                Err(_) => {
+                    break;
+                }
+            }
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Crabcassone");
             ui.add(egui::Slider::new(&mut self.zoom, 40..=160).text("age"));

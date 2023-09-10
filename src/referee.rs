@@ -1,4 +1,4 @@
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Receiver, Sender};
 
 use crate::render::Message;
 
@@ -36,8 +36,9 @@ enum MiniTile {
     Monastery,
 }
 
-pub fn referee_main(receiver: Receiver<Message>) {
+pub fn referee_main(receiver: Receiver<Message>, sender: Sender<Board>) {
     let board = Board::default();
+    sender.send(board).unwrap();
     loop {
         match receiver.recv().unwrap() {
             Message::PrintMessage(message) => {
