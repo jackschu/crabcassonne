@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use eframe::egui;
 use egui::{pos2, vec2, Color32, Id, Rect};
 
-use crate::referee::{Board, MiniTile, PlacedTile, TileClickTarget};
+use crate::referee::{Board, MiniTile, TileClickTarget, TileData, BOARD_DIM};
 
 #[derive(Clone)]
 pub struct ClickMessage {
@@ -39,7 +39,7 @@ impl MyApp {
 fn tile_ui(
     ui: &mut egui::Ui,
     size: f32,
-    tile: &Option<PlacedTile>,
+    tile: Option<&TileData>,
     row: usize,
     column: usize,
 ) -> egui::Response {
@@ -54,6 +54,24 @@ fn tile_ui(
         let visuals = ui.style().interact(&response);
         ui.painter()
             .rect(rect, 0.0, default_color, visuals.bg_stroke);
+    }
+
+    if response.clicked() {
+        response.ctx.data_mut(|map| {
+            let id = Id::new(SUBTILE_ID);
+            map.insert_temp::<ClickMessage>(
+                id,
+                ClickMessage {
+                    row,
+                    column,
+                    location: TileClickTarget::Center,
+                },
+            );
+        });
+    }
+
+    if tile.is_none() {
+        return response;
     }
 
     let get_color = |location: &TileClickTarget| {
@@ -146,7 +164,12 @@ fn rect_button(ui: &mut egui::Ui, rect: Rect, id: Id, color: Color32) -> egui::R
     response
 }
 
-fn tile(size: f32, tile: &Option<PlacedTile>, row: usize, column: usize) -> impl egui::Widget + '_ {
+fn tile<'a>(
+    size: f32,
+    tile: Option<&'a TileData>,
+    row: usize,
+    column: usize,
+) -> impl egui::Widget + 'a {
     move |ui: &mut egui::Ui| tile_ui(ui, size, tile, row, column)
 }
 
@@ -160,8 +183,8 @@ impl eframe::App for MyApp {
             ui.heading("Crabcassone");
             ui.add(egui::Slider::new(&mut self.zoom, 40..=160).text("age"));
 
-            let grid_rows = 30;
-            let grid_cols = 30;
+            let grid_rows = BOARD_DIM;
+            let grid_cols = BOARD_DIM;
             let grid = egui::Grid::new("some_unique_id").spacing(vec2(10.0, 10.0));
 
             // grid = grid.min_row_height(size);
