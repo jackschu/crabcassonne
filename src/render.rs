@@ -248,6 +248,7 @@ impl eframe::App for MyApp {
 
             let events = ui.input(|i| i.events.clone());
             for event in &events {
+                #[allow(clippy::single_match)] // may expand
                 match event {
                     egui::Event::Key {
                         key,
@@ -256,6 +257,7 @@ impl eframe::App for MyApp {
                         repeat,
                     } => {
                         if *pressed && !repeat {
+                            #[allow(clippy::single_match)] // may expand
                             match key {
                                 egui::Key::R => {
                                     if let Some(preview_tile) = &mut self.preview_tile {

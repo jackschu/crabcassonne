@@ -1,10 +1,6 @@
-use std::{
-    hash::Hash,
-};
+use std::hash::Hash;
 
 use egui::Color32;
-
-
 
 #[derive(Clone, Default)]
 pub struct TileDataBuilder {
@@ -116,11 +112,11 @@ impl From<TileDataBuilder> for TileData {
 impl TileData {
     pub fn at(&self, target: &TileClickTarget) -> &MiniTile {
         match target {
-            TileClickTarget::Top => &self.top(),
-            TileClickTarget::Left => &self.left(),
+            TileClickTarget::Top => self.top(),
+            TileClickTarget::Left => self.left(),
             TileClickTarget::Center => &self.center,
-            TileClickTarget::Right => &self.right(),
-            TileClickTarget::Bottom => &self.bottom(),
+            TileClickTarget::Right => self.right(),
+            TileClickTarget::Bottom => self.bottom(),
         }
     }
 }
