@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::tile::TileData;
+use crate::tile::{TileClickTarget, TileData};
 
 pub const BOARD_DIM: usize = 72;
 
@@ -10,6 +10,15 @@ pub type Coordinate = (i8, i8);
 pub struct Board {
     data: HashMap<Coordinate, TileData>,
 }
+
+static DELTAS: [Coordinate; 4] = [(0, 1), (1, 0), (-1, 0), (0, -1)];
+// From unplaced tile to placed tile
+static COUPLINGS: [(TileClickTarget, TileClickTarget); 4] = [
+    (TileClickTarget::Right, TileClickTarget::Left),
+    (TileClickTarget::Bottom, TileClickTarget::Top),
+    (TileClickTarget::Top, TileClickTarget::Bottom),
+    (TileClickTarget::Left, TileClickTarget::Right),
+];
 
 impl Board {
     pub fn at(&self, coord: &Coordinate) -> Option<&TileData> {
@@ -26,12 +35,10 @@ impl Board {
     }
 
     pub fn get_legal_tiles(&self) -> HashSet<Coordinate> {
-        let deltas: Vec<Coordinate> = vec![(0, 1), (1, 0), (-1, 0), (0, -1)];
-
         self.data
             .keys()
             .flat_map(|tile| -> HashSet<Coordinate> {
-                deltas
+                DELTAS
                     .iter()
                     .filter_map(|delta| {
                         let coord = (delta.0 + tile.0, delta.1 + tile.1);
@@ -45,13 +52,33 @@ impl Board {
             })
             .collect()
     }
+
+    pub fn is_features_match(&self, dest: &Coordinate, incoming_tile: &TileData) -> bool {
+        DELTAS
+            .iter()
+            .map(|delta| self.at(&(delta.0 + dest.0, delta.1 + dest.1)))
+            .zip(COUPLINGS.iter())
+            .filter_map(|(existing_tile, coupling)| {
+                let tile = existing_tile?;
+                Some((tile, coupling))
+            })
+            .all(|(existing_tile, coupling)| {
+                let incoming_loc = &coupling.0;
+                let existing_loc = &coupling.1;
+
+                existing_tile.at(existing_loc) == incoming_tile.at(incoming_loc)
+            })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::assert_eq;
 
-    use crate::tilebag::TileBag;
+    use crate::{
+        tile::{MiniTile, TileDataBuilder},
+        tilebag::TileBag,
+    };
 
     use super::*;
 
@@ -71,5 +98,61 @@ mod tests {
 
         board.set((30, 29), bag.pull().unwrap());
         assert_eq!(board.get_legal_tiles().len(), 8);
+    }
+    #[test]
+    fn features_match_basic() {
+        let mut board = Board::default();
+        let tile_left: TileData = TileDataBuilder {
+            top: MiniTile::City,
+            left: MiniTile::Road,
+            right: MiniTile::Junction,
+            bottom: MiniTile::Monastery,
+            ..Default::default()
+        }
+        .into();
+        let mut tile_right = tile_left.clone();
+        board.set((30, 30), tile_left);
+        assert!(!board.is_features_match(&(30, 31), &tile_right));
+
+        tile_right.rotate_right();
+        assert!(!board.is_features_match(&(30, 31), &tile_right));
+        tile_right.rotate_right();
+
+        assert!(board.is_features_match(&(30, 31), &tile_right));
+    }
+
+    #[test]
+    fn features_match_surround_city() {
+        let mut board = Board::default();
+
+        let tile_city: TileData = TileDataBuilder {
+            top: MiniTile::City,
+            left: MiniTile::City,
+            right: MiniTile::City,
+            bottom: MiniTile::City,
+            ..Default::default()
+        }
+        .into();
+
+        let center = (30 as i8, 30 as i8);
+        for delta in DELTAS {
+            let dest = (center.0 + delta.0, center.1 + delta.1);
+            assert!(board.is_features_match(&dest, &tile_city));
+            board.set(dest, tile_city.clone());
+        }
+
+        assert!(board.is_features_match(&center, &tile_city));
+        let mut bag = TileBag::default();
+        for _ in 0..1_000_00 {
+            if let Some(tile) = bag.pull() {
+                if tile_city.matches_minis(&tile) {
+                    assert!(board.is_features_match(&center, &tile));
+                } else {
+                    assert!(!board.is_features_match(&center, &tile));
+                }
+            } else {
+                break;
+            }
+        }
     }
 }

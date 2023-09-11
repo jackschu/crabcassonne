@@ -26,6 +26,14 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
                     if !legal_tiles.contains(&(message.coord)) {
                         continue;
                     }
+                    let maybe_next = tilebag.peek();
+                    if let Some(next) = maybe_next {
+                        let mut next = next.clone();
+                        next.rotation = message.rotation.clone();
+                        if !board.is_features_match(&(message.coord), &next) {
+                            continue;
+                        }
+                    }
                 }
                 if let Some(mut tile) = tilebag.pull() {
                     tile.rotation = message.rotation;

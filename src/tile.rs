@@ -53,6 +53,15 @@ impl Rotation {
 }
 
 impl TileData {
+    /**
+     * @return true iff rotation respected cardinals match
+     */
+    pub fn matches_minis(&self, other: &TileData) -> bool {
+        self.top() == other.top()
+            && self.bottom() == other.bottom()
+            && self.left() == other.left()
+            && self.right() == other.right()
+    }
     pub fn top(&self) -> &MiniTile {
         match self.rotation {
             Rotation::None => &self.top,
@@ -121,7 +130,7 @@ impl TileData {
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub enum TileClickTarget {
     Top,
     Left,
