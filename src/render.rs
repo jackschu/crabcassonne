@@ -4,14 +4,13 @@ use eframe::egui;
 use egui::{pos2, vec2, Color32, Id, Rect, Stroke};
 
 use crate::{
-    board::{Board, BOARD_DIM},
+    board::{Board, Coordinate, BOARD_DIM},
     tile::{MiniTile, Rotation, TileClickTarget, TileData},
 };
 
 #[derive(Clone)]
 pub struct ClickMessage {
-    pub row: usize,
-    pub column: usize,
+    pub coord: Coordinate,
     pub rotation: Rotation,
     pub location: TileClickTarget,
 }
@@ -55,8 +54,7 @@ fn tile_ui(
     ui: &mut egui::Ui,
     size: f32,
     tile: Option<&TileData>,
-    row: usize,
-    column: usize,
+    coord: Coordinate,
     preview_tile: &Option<TileData>,
 ) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(vec2(size, size), egui::Sense::click());
@@ -154,8 +152,7 @@ fn tile_ui(
             map.insert_temp::<ClickMessage>(
                 id,
                 ClickMessage {
-                    row,
-                    column,
+                    coord,
                     location: TileClickTarget::Center,
                     rotation: if let Some(tile) = preview_tile {
                         tile.rotation.clone()
@@ -191,8 +188,7 @@ fn tile_ui(
                 map.insert_temp::<ClickMessage>(
                     id,
                     ClickMessage {
-                        row,
-                        column,
+                        coord,
                         location: def.target,
                         rotation: Rotation::None,
                     },
@@ -223,11 +219,10 @@ fn rect_button(ui: &mut egui::Ui, rect: Rect, id: Id, color: Color32) -> egui::R
 fn tile<'a>(
     size: f32,
     tile: Option<&'a TileData>,
-    row: usize,
-    column: usize,
+    coord: Coordinate,
     preview_tile: &'a Option<TileData>,
 ) -> impl egui::Widget + 'a {
-    move |ui: &mut egui::Ui| tile_ui(ui, size, tile, row, column, preview_tile)
+    move |ui: &mut egui::Ui| tile_ui(ui, size, tile, coord, preview_tile)
 }
 
 impl eframe::App for MyApp {
@@ -285,13 +280,13 @@ impl eframe::App for MyApp {
                     grid.show(ui, |ui| {
                         for r in 0..grid_rows {
                             for c in 0..grid_cols {
+                                let coord = (r as i8, c as i8);
                                 let response = ui
-                                    .push_id((r, c), |ui| {
+                                    .push_id(coord, |ui| {
                                         ui.add(tile(
                                             self.zoom as f32,
-                                            self.board.at(r, c),
-                                            r,
-                                            c,
+                                            self.board.at(&coord),
+                                            coord,
                                             &self.preview_tile,
                                         ))
                                     })

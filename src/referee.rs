@@ -1,8 +1,4 @@
-use std::{
-    sync::mpsc::{Receiver, Sender},
-};
-
-
+use std::sync::mpsc::{Receiver, Sender};
 
 use crate::{
     board::Board,
@@ -27,13 +23,13 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
             InteractionMessage::Click(message) => {
                 if board.tiles_placed() != 0 {
                     let legal_tiles = board.get_legal_tiles();
-                    if !legal_tiles.contains(&(message.row, message.column)) {
+                    if !legal_tiles.contains(&(message.coord)) {
                         continue;
                     }
                 }
                 if let Some(mut tile) = tilebag.pull() {
                     tile.rotation = message.rotation;
-                    board.set(message.row, message.column, tile);
+                    board.set(message.coord, tile);
                 } else {
                     println!("out of tiles");
                 }
