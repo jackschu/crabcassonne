@@ -3,7 +3,10 @@ use std::sync::mpsc::{Receiver, Sender};
 use eframe::egui;
 use egui::{pos2, vec2, Color32, Id, Rect, Stroke};
 
-use crate::referee::{Board, MiniTile, Rotation, TileClickTarget, TileData, BOARD_DIM};
+use crate::{
+    board::{Board, BOARD_DIM},
+    tile::{MiniTile, Rotation, TileClickTarget, TileData},
+};
 
 #[derive(Clone)]
 pub struct ClickMessage {

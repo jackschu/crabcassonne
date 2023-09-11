@@ -1,6 +1,6 @@
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::referee::{MiniTile, TileData, TileDataBuilder};
+use crate::tile::{MiniTile, TileData, TileDataBuilder};
 
 pub struct TileBag {
     data: Vec<TileData>,
