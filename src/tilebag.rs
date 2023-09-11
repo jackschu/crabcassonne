@@ -1,6 +1,6 @@
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::referee::{MiniTile, TileData};
+use crate::referee::{MiniTile, TileData, TileDataBuilder};
 
 pub struct TileBag {
     data: Vec<TileData>,
@@ -53,13 +53,13 @@ impl TileBag {
 
 impl Default for TileBag {
     fn default() -> Self {
-        let mut data: Vec<TileData> = Vec::new();
+        let mut data: Vec<TileDataBuilder> = Vec::new();
 
         // --------
         // 0 roads
         // --------
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 center: MiniTile::Monastery,
                 ..Default::default()
             };
@@ -67,7 +67,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 ..Default::default()
             };
@@ -75,7 +75,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 bottom: MiniTile::City,
                 ..Default::default()
@@ -84,7 +84,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 right: MiniTile::City,
                 ..Default::default()
@@ -93,7 +93,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 left: MiniTile::City,
                 right: MiniTile::City,
                 center: MiniTile::City,
@@ -103,7 +103,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 has_emblem: true,
                 left: MiniTile::City,
                 right: MiniTile::City,
@@ -114,7 +114,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 right: MiniTile::City,
                 center: MiniTile::City,
@@ -124,7 +124,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 has_emblem: true,
                 top: MiniTile::City,
                 right: MiniTile::City,
@@ -135,7 +135,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 right: MiniTile::City,
                 center: MiniTile::City,
@@ -146,7 +146,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 has_emblem: true,
                 top: MiniTile::City,
                 right: MiniTile::City,
@@ -158,7 +158,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 has_emblem: true,
                 top: MiniTile::City,
                 right: MiniTile::City,
@@ -174,7 +174,7 @@ impl Default for TileBag {
         // 1 roads
         // --------
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 center: MiniTile::Monastery,
                 bottom: MiniTile::Road,
                 ..Default::default()
@@ -183,7 +183,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 right: MiniTile::City,
                 center: MiniTile::City,
@@ -194,7 +194,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 has_emblem: true,
                 top: MiniTile::City,
                 right: MiniTile::City,
@@ -210,7 +210,7 @@ impl Default for TileBag {
         // --------
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 left: MiniTile::Road,
                 right: MiniTile::Road,
                 center: MiniTile::Road,
@@ -220,7 +220,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 left: MiniTile::Road,
                 center: MiniTile::Road,
                 bottom: MiniTile::Road,
@@ -230,7 +230,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 left: MiniTile::Road,
                 right: MiniTile::Road,
@@ -240,7 +240,7 @@ impl Default for TileBag {
             3
         ]);
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 left: MiniTile::Road,
                 bottom: MiniTile::Road,
@@ -250,7 +250,7 @@ impl Default for TileBag {
             3
         ]);
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 right: MiniTile::Road,
                 bottom: MiniTile::Road,
@@ -261,7 +261,7 @@ impl Default for TileBag {
         ]);
 
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 right: MiniTile::City,
                 secondary_center: Some(MiniTile::City),
@@ -273,7 +273,7 @@ impl Default for TileBag {
             3
         ]);
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 has_emblem: true,
                 top: MiniTile::City,
                 right: MiniTile::City,
@@ -289,7 +289,7 @@ impl Default for TileBag {
         // 3 roads
         // -------
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 right: MiniTile::Road,
                 bottom: MiniTile::Road,
                 left: MiniTile::Road,
@@ -299,7 +299,7 @@ impl Default for TileBag {
             4
         ]);
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::City,
                 right: MiniTile::Road,
                 bottom: MiniTile::Road,
@@ -314,7 +314,7 @@ impl Default for TileBag {
         // 4 roads
         // -------
         data.append(&mut vec![
-            TileData {
+            TileDataBuilder {
                 top: MiniTile::Road,
                 right: MiniTile::Road,
                 bottom: MiniTile::Road,
@@ -326,15 +326,18 @@ impl Default for TileBag {
         ]);
 
         TileBag {
-            data,
+            data: data.into_iter().map(|builder| builder.into()).collect(),
             rng: rand::thread_rng(),
-            next_idx: NextTileType::FirstTile(TileData {
-                top: MiniTile::City,
-                left: MiniTile::Road,
-                right: MiniTile::Road,
-                center: MiniTile::Road,
-                ..Default::default()
-            }),
+            next_idx: NextTileType::FirstTile(
+                TileDataBuilder {
+                    top: MiniTile::City,
+                    left: MiniTile::Road,
+                    right: MiniTile::Road,
+                    center: MiniTile::Road,
+                    ..Default::default()
+                }
+                .into(),
+            ),
         }
     }
 }

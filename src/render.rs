@@ -3,12 +3,13 @@ use std::sync::mpsc::{Receiver, Sender};
 use eframe::egui;
 use egui::{pos2, vec2, Color32, Id, Rect, Stroke};
 
-use crate::referee::{Board, MiniTile, TileClickTarget, TileData, BOARD_DIM};
+use crate::referee::{Board, MiniTile, Rotation, TileClickTarget, TileData, BOARD_DIM};
 
 #[derive(Clone)]
 pub struct ClickMessage {
     pub row: usize,
     pub column: usize,
+    pub rotation: Rotation,
     pub location: TileClickTarget,
 }
 
@@ -153,6 +154,11 @@ fn tile_ui(
                     row,
                     column,
                     location: TileClickTarget::Center,
+                    rotation: if let Some(tile) = preview_tile {
+                        tile.rotation.clone()
+                    } else {
+                        Rotation::None
+                    },
                 },
             );
         });
@@ -185,6 +191,7 @@ fn tile_ui(
                         row,
                         column,
                         location: def.target,
+                        rotation: Rotation::None,
                     },
                 );
             });
@@ -232,6 +239,30 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Crabcassone");
             ui.add(egui::Slider::new(&mut self.zoom, 40..=160).text("age"));
+
+            let events = ui.input(|i| i.events.clone());
+            for event in &events {
+                match event {
+                    egui::Event::Key {
+                        key,
+                        pressed,
+                        modifiers: _modifiers,
+                        repeat,
+                    } => {
+                        if *pressed && !repeat {
+                            match key {
+                                egui::Key::R => {
+                                    if let Some(preview_tile) = &mut self.preview_tile {
+                                        preview_tile.rotate_right()
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
 
             let grid_rows = BOARD_DIM;
             let grid_cols = BOARD_DIM;
