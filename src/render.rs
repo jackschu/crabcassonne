@@ -238,7 +238,10 @@ impl eframe::App for MyApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Crabcassone");
-            ui.add(egui::Slider::new(&mut self.zoom, 40..=160).text("age"));
+            ui.horizontal(|ui| {
+                ui.add(egui::Slider::new(&mut self.zoom, 40..=160).text("zoom"));
+                ui.label("Press R to rotate");
+            });
 
             let events = ui.input(|i| i.events.clone());
             for event in &events {
