@@ -60,3 +60,6 @@ flycheck_*.el
 
 /flamegraph.svg
 /perf.data*
+
+# nix
+/result
