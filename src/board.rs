@@ -49,12 +49,12 @@ impl Board {
 
     pub fn get_completion_points(&self, tile: &TileData, coord: &Coordinate) -> u8 {
         for direction in &CARDINALS {
-            let feature = tile.at(&direction);
-            let (included, completed) = self.get_feature_tiles(tile, coord, &direction);
+            let feature = tile.at(direction);
+            let (included, completed) = self.get_feature_tiles(tile, coord, direction);
             let non_empty: HashSet<Coordinate> = included
                 .into_iter()
                 .map(|x| x.0)
-                .filter(|x| self.at(&x).is_some())
+                .filter(|x| self.at(x).is_some())
                 .collect();
 
             println!(
@@ -78,12 +78,12 @@ impl Board {
         direction: &TileClickTarget,
     ) -> (Vec<(Coordinate, TileClickTarget)>, bool) {
         #[allow(clippy::single_match)] // will expand
-        let feature = initial_tile.at(&direction);
+        let feature = initial_tile.at(direction);
         match feature {
             MiniTile::Road | MiniTile::City => {
                 let mut complete = true;
-                let mut queue = vec![(initial_coord.clone(), direction.clone())];
-                let mut visited = HashSet::from([(initial_coord.clone(), direction.clone())]);
+                let mut queue = vec![(*initial_coord, direction.clone())];
+                let mut visited = HashSet::from([(*initial_coord, direction.clone())]);
 
                 while let Some((coord, direction)) = queue.pop() {
                     let maybe_tile = if coord == *initial_coord {
@@ -103,7 +103,7 @@ impl Board {
                                         COUPLINGS_MAP.get(direction).unwrap().clone(),
                                     )
                                 })
-                                .filter(|elem| visited.get(&elem).is_none())
+                                .filter(|elem| visited.get(elem).is_none())
                                 .collect();
                             for elem in next {
                                 visited.insert(elem.clone());
@@ -234,7 +234,7 @@ mod tests {
         }
         .into();
 
-        let center = (30 as i8, 30 as i8);
+        let center = (30_i8, 30_i8);
         for delta in DELTAS {
             let dest = (center.0 + delta.0, center.1 + delta.1);
             assert!(board.is_features_match(&dest, &tile_city));
@@ -243,7 +243,7 @@ mod tests {
 
         assert!(board.is_features_match(&center, &tile_city));
         let mut bag = TileBag::default();
-        for _ in 0..1_000_00 {
+        for _ in 0..100_000 {
             if let Some(tile) = bag.pull() {
                 if tile_city.matches_minis(&tile) {
                     assert!(board.is_features_match(&center, &tile));

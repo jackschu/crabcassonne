@@ -78,7 +78,7 @@ impl TileData {
         CARDINALS
             .clone()
             .into_iter()
-            .filter(|direction| self.at(&direction) == entrance_type)
+            .filter(|direction| self.at(direction) == entrance_type)
             .collect()
     }
 
@@ -180,11 +180,7 @@ pub enum MiniTile {
 
 impl MiniTile {
     pub fn is_traversable(&self) -> bool {
-        match self {
-            Self::Road => true,
-            Self::City => true,
-            _ => false,
-        }
+        matches!(&self, Self::Road | Self::City)
     }
     pub fn get_color(&self) -> Color32 {
         match self {
