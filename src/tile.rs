@@ -25,6 +25,13 @@ pub struct TileData {
     pub rotation: Rotation,
 }
 
+pub static CARDINALS: [TileClickTarget; 4] = [
+    TileClickTarget::Left,
+    TileClickTarget::Right,
+    TileClickTarget::Top,
+    TileClickTarget::Bottom,
+];
+
 #[derive(Clone, Debug)]
 pub enum Rotation {
     None,
@@ -53,6 +60,28 @@ impl Rotation {
 }
 
 impl TileData {
+    pub fn get_exits(&self, entrance: &TileClickTarget) -> Vec<TileClickTarget> {
+        let entrance_type = self.at(entrance);
+        if !entrance_type.is_traversable() {
+            return vec![];
+        }
+        if !(self.at(&TileClickTarget::Center) == entrance_type
+            || self
+                .secondary_center
+                .as_ref()
+                .map(|center| center == entrance_type)
+                .unwrap_or(false))
+        {
+            return vec![entrance.clone()];
+        }
+
+        CARDINALS
+            .clone()
+            .into_iter()
+            .filter(|direction| self.at(&direction) == entrance_type)
+            .collect()
+    }
+
     /**
      * @return true iff rotation respected cardinals match
      */
@@ -150,6 +179,13 @@ pub enum MiniTile {
 }
 
 impl MiniTile {
+    pub fn is_traversable(&self) -> bool {
+        match self {
+            Self::Road => true,
+            Self::City => true,
+            _ => false,
+        }
+    }
     pub fn get_color(&self) -> Color32 {
         match self {
             Self::Grass => Color32::from_rgb(0, 188, 84),
