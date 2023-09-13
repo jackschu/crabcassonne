@@ -77,8 +77,8 @@ impl Board {
         initial_coord: &Coordinate,
         direction: &TileClickTarget,
     ) -> (Vec<(Coordinate, TileClickTarget)>, bool) {
-        #[allow(clippy::single_match)] // will expand
         let feature = initial_tile.at(direction);
+        #[allow(clippy::single_match)] // will expand
         match feature {
             MiniTile::Road | MiniTile::City => {
                 let mut complete = true;
@@ -91,25 +91,24 @@ impl Board {
                     } else {
                         self.at(&coord)
                     };
-                    match maybe_tile {
-                        None => complete = false,
-                        Some(tile) => {
-                            let directions = tile.get_exits(&direction);
-                            let next: Vec<(Coordinate, TileClickTarget)> = directions
-                                .iter()
-                                .map(|direction| {
-                                    (
-                                        Board::offset_coordinate(&coord, direction),
-                                        COUPLINGS_MAP.get(direction).unwrap().clone(),
-                                    )
-                                })
-                                .filter(|elem| visited.get(elem).is_none())
-                                .collect();
-                            for elem in next {
-                                visited.insert(elem.clone());
-                                queue.push(elem);
-                            }
+                    if let Some(tile) = maybe_tile {
+                        let directions = tile.get_exits(&direction);
+                        let next: Vec<(Coordinate, TileClickTarget)> = directions
+                            .iter()
+                            .map(|direction| {
+                                (
+                                    Board::offset_coordinate(&coord, direction),
+                                    COUPLINGS_MAP.get(direction).unwrap().clone(),
+                                )
+                            })
+                            .filter(|elem| visited.get(elem).is_none())
+                            .collect();
+                        for elem in next {
+                            visited.insert(elem.clone());
+                            queue.push(elem);
                         }
+                    } else {
+                        complete = false;
                     }
                 }
                 (visited.into_iter().collect(), complete)
