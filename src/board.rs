@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::tile::{MiniTile, TileClickTarget, TileData, CARDINALS};
+use egui::Direction;
 use once_cell::sync::Lazy;
 
 pub const BOARD_DIM: usize = 72;
@@ -48,22 +49,35 @@ impl Board {
     }
 
     pub fn get_completion_points(&self, tile: &TileData, coord: &Coordinate) -> u8 {
+        let mut data: Vec<(
+            HashSet<TileClickTarget>,
+            bool,
+            HashSet<(Coordinate, TileClickTarget)>,
+        )> = vec![];
+        // prevent double reporting single tile
+        let mut seen: HashSet<TileClickTarget> = HashSet::from([]);
         for direction in &CARDINALS {
-            let feature = tile.at(direction);
+            if seen.get(direction).is_some() {
+                continue;
+            }
             let (included, completed) = self.get_feature_tiles(tile, coord, direction);
-            let non_empty: HashSet<Coordinate> = included
-                .into_iter()
-                .map(|x| x.0)
-                .filter(|x| self.at(x).is_some())
+            let keys: HashSet<TileClickTarget> = included
+                .iter()
+                .filter(|(result_tile, _direction)| coord == result_tile)
+                .map(|(_, direction)| direction.clone())
                 .collect();
-
-            println!(
-                "feature {:?} len {} completed {}",
-                feature,
-                non_empty.len() + 1,
-                completed
-            );
+            for elem in &keys {
+                seen.insert(elem.clone());
+            }
+            data.push((keys, completed, included));
         }
+
+        // println!(
+        //     "feature {:?} len {} completed {}",
+        //     feature,
+        //     non_empty.len() + 1,
+        //     completed
+        // );
         0 // TODO
     }
 
@@ -76,7 +90,7 @@ impl Board {
         initial_tile: &TileData,
         initial_coord: &Coordinate,
         direction: &TileClickTarget,
-    ) -> (Vec<(Coordinate, TileClickTarget)>, bool) {
+    ) -> (HashSet<(Coordinate, TileClickTarget)>, bool) {
         let feature = initial_tile.at(direction);
         #[allow(clippy::single_match)] // will expand
         match feature {
@@ -111,9 +125,9 @@ impl Board {
                         complete = false;
                     }
                 }
-                (visited.into_iter().collect(), complete)
+                (visited, complete)
             }
-            _ => (vec![], false),
+            _ => (HashSet::from([]), false),
         }
     }
 
