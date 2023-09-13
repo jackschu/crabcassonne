@@ -37,7 +37,8 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
                 }
                 if let Some(mut tile) = tilebag.pull() {
                     tile.rotation = message.rotation;
-                    board.get_completion_points(&tile, &message.coord);
+                    let points = board.get_completion_points(&message.coord, &tile);
+                    println!("scored points {}", points);
                     board.set(message.coord, tile);
                 } else {
                     println!("out of tiles");

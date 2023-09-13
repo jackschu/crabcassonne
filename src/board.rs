@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::tile::{MiniTile, TileClickTarget, TileData, CARDINALS};
 use egui::Direction;
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 
 pub const BOARD_DIM: usize = 72;
@@ -34,6 +35,47 @@ static COUPLINGS: [(TileClickTarget, TileClickTarget); 4] = [
 static COUPLINGS_MAP: Lazy<HashMap<TileClickTarget, TileClickTarget>> =
     Lazy::new(|| HashMap::from(COUPLINGS.clone()));
 
+struct FeatureResult<'a> {
+    pub originators: HashSet<TileClickTarget>,
+    pub originator_coord: Coordinate,
+    pub completed: bool,
+    pub feature: MiniTile,
+    pub visited: HashSet<(Coordinate, TileClickTarget)>,
+    pub board: &'a Board,
+}
+
+impl FeatureResult<'_> {
+    pub fn get_present_tiles(&self) -> impl Iterator<Item = &Coordinate> + '_ {
+        self.visited
+            .iter()
+            .map(|(coord, _)| coord)
+            .unique()
+            .filter(|coord| *coord == &self.originator_coord || self.board.at(coord).is_some())
+    }
+    pub fn get_score(&self, is_endgame: bool) -> u8 {
+        if !is_endgame && !self.completed {
+            return 0;
+        }
+        match self.feature {
+            MiniTile::Road | MiniTile::City => {
+                let is_city = self.feature == MiniTile::City;
+                let multiplier: u8 = if !is_endgame && is_city { 2 } else { 1 };
+                let mut unit_count = self.get_present_tiles().count() as u8;
+                if is_city {
+                    unit_count += self
+                        .get_present_tiles()
+                        .filter_map(|coord| self.board.at(coord))
+                        .filter(|tile| tile.has_emblem)
+                        .count() as u8;
+                }
+                unit_count * multiplier
+            }
+            MiniTile::Monastery => self.get_present_tiles().count() as u8,
+            _ => 0,
+        }
+    }
+}
+
 impl Board {
     pub fn at(&self, coord: &Coordinate) -> Option<&TileData> {
         self.data.get(coord)
@@ -48,12 +90,8 @@ impl Board {
         self.data.len() as u32
     }
 
-    pub fn get_completion_points(&self, tile: &TileData, coord: &Coordinate) -> u8 {
-        let mut data: Vec<(
-            HashSet<TileClickTarget>,
-            bool,
-            HashSet<(Coordinate, TileClickTarget)>,
-        )> = vec![];
+    pub fn get_completion_points(&self, coord: &Coordinate, tile: &TileData) -> u8 {
+        let mut data: Vec<FeatureResult> = vec![];
         // prevent double reporting single tile
         let mut seen: HashSet<TileClickTarget> = HashSet::from([]);
         for direction in &CARDINALS {
@@ -69,16 +107,21 @@ impl Board {
             for elem in &keys {
                 seen.insert(elem.clone());
             }
-            data.push((keys, completed, included));
+            data.push(FeatureResult {
+                board: &self,
+                originator_coord: coord.clone(),
+                originators: keys,
+                completed,
+                feature: tile.at(direction).clone(),
+                visited: included,
+            });
+        }
+        let mut out: u8 = 0;
+        for datum in data {
+            out += datum.get_score(false);
         }
 
-        // println!(
-        //     "feature {:?} len {} completed {}",
-        //     feature,
-        //     non_empty.len() + 1,
-        //     completed
-        // );
-        0 // TODO
+        out
     }
 
     fn offset_coordinate(coord: &Coordinate, direction: &TileClickTarget) -> Coordinate {
@@ -255,6 +298,7 @@ mod tests {
         }
 
         assert!(board.is_features_match(&center, &tile_city));
+        assert_eq!(board.get_completion_points(&center, &tile_city), 16);
         let mut bag = TileBag::default();
         for _ in 0..100_000 {
             if let Some(tile) = bag.pull() {
