@@ -63,3 +63,5 @@ flycheck_*.el
 
 # nix
 /result
+/result-bin
+temp.nix

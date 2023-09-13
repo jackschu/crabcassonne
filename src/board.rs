@@ -15,6 +15,16 @@ pub struct Board {
 }
 
 static DELTAS: [Coordinate; 4] = [(0, 1), (1, 0), (-1, 0), (0, -1)];
+static OCTAL_DELTAS: [Coordinate; 8] = [
+    (0, 1),
+    (1, 0),
+    (-1, 0),
+    (0, -1),
+    (1, 1),
+    (1, -1),
+    (-1, 1),
+    (-1, -1),
+];
 static DELTAS_MAP: Lazy<HashMap<TileClickTarget, Coordinate>> = Lazy::new(|| {
     HashMap::from([
         (TileClickTarget::Right, (0, 1)),
@@ -117,6 +127,12 @@ impl Board {
             });
         }
         let mut out: u8 = 0;
+
+        if tile.center_matches(&MiniTile::Monastery) {
+            let (included, completed) =
+                self.get_feature_tiles(tile, coord, &TileClickTarget::Center);
+        }
+
         for datum in data {
             out += datum.get_score(false);
         }
@@ -135,7 +151,6 @@ impl Board {
         direction: &TileClickTarget,
     ) -> (HashSet<(Coordinate, TileClickTarget)>, bool) {
         let feature = initial_tile.at(direction);
-        #[allow(clippy::single_match)] // will expand
         match feature {
             MiniTile::Road | MiniTile::City => {
                 let mut complete = true;
@@ -169,6 +184,16 @@ impl Board {
                     }
                 }
                 (visited, complete)
+            }
+            MiniTile::Monastery => {
+                let mut completed = true;
+                let mut out: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
+                for delta in OCTAL_DELTAS {
+                    let coord = (initial_coord.0 + delta.0, initial_coord.1 + delta.1);
+                    completed = completed && self.at(&coord).is_some();
+                    out.insert((coord, TileClickTarget::Center));
+                }
+                (out, completed)
             }
             _ => (HashSet::from([]), false),
         }

@@ -27,7 +27,7 @@
             wrapProgram "$out/bin/crabcassonne" --prefix LD_LIBRARY_PATH : "${libPath}"
             '';
 
-    LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
+#    LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
     meta = { description = "Crabcassonne"; };
   };
 }

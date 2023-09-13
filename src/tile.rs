@@ -60,18 +60,21 @@ impl Rotation {
 }
 
 impl TileData {
+    pub fn center_matches(&self, feature: &MiniTile) -> bool {
+        self.at(&TileClickTarget::Center) == feature
+            || self
+                .secondary_center
+                .as_ref()
+                .map(|center| center == feature)
+                .unwrap_or(false)
+    }
+
     pub fn get_exits(&self, entrance: &TileClickTarget) -> Vec<TileClickTarget> {
         let entrance_type = self.at(entrance);
         if !entrance_type.is_traversable() {
             return vec![];
         }
-        if !(self.at(&TileClickTarget::Center) == entrance_type
-            || self
-                .secondary_center
-                .as_ref()
-                .map(|center| center == entrance_type)
-                .unwrap_or(false))
-        {
+        if !self.center_matches(entrance_type) {
             return vec![entrance.clone()];
         }
 
