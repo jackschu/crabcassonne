@@ -44,12 +44,12 @@ static COUPLINGS: [(TileClickTarget, TileClickTarget); 4] = [
 static COUPLINGS_MAP: Lazy<HashMap<TileClickTarget, TileClickTarget>> =
     Lazy::new(|| HashMap::from(COUPLINGS.clone()));
 
-struct FeatureResult<'a> {
+pub struct FeatureResult<'a> {
     pub originators: HashSet<TileClickTarget>,
     pub completed: bool,
     pub feature: MiniTile,
     pub visited: HashSet<(Coordinate, TileClickTarget)>,
-    pub board: OverlaidBoard<'a>,
+    pub board: Box<&'a dyn BoardData>,
 }
 
 #[derive(Clone)]
@@ -115,11 +115,55 @@ pub trait BoardData {
     }
     fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_>;
 
-    // fn get_connecting_feature_results(&self, coord: &Coordinate, tile: &TileData) -> FeatureResult
-    // where
-    //     Self: Sized,
-    // {
-    // }
+    fn get_connecting_feature_results(
+        &self,
+        initial_coord: &Coordinate,
+        direction: TileClickTarget,
+    ) -> Option<FeatureResult>
+    where
+        Self: Sized,
+    {
+        let initial_tile = self.at(initial_coord)?;
+        let initial_feature = initial_tile.at(&direction);
+        let mut complete = true;
+        let mut queue = vec![(*initial_coord, direction.clone())];
+        let mut visited = HashSet::from([(*initial_coord, direction.clone())]);
+
+        while let Some((coord, direction)) = queue.pop() {
+            if let Some(tile) = self.at(&coord) {
+                let directions = tile.get_exits(&direction);
+                let next: Vec<(Coordinate, TileClickTarget)> = directions
+                    .iter()
+                    .map(|direction| {
+                        (
+                            ConcreteBoard::offset_coordinate(&coord, direction),
+                            COUPLINGS_MAP.get(direction).unwrap().clone(),
+                        )
+                    })
+                    .filter(|elem| visited.get(elem).is_none())
+                    .collect();
+                for elem in next {
+                    visited.insert(elem.clone());
+                    queue.push(elem);
+                }
+            } else {
+                complete = false;
+            }
+        }
+
+        let keys: HashSet<TileClickTarget> = visited
+            .iter()
+            .filter(|(result_tile, _direction)| initial_coord == result_tile)
+            .map(|(_, direction)| direction.clone())
+            .collect();
+        Some(FeatureResult {
+            board: Box::new(self),
+            originators: keys,
+            completed: complete,
+            feature: initial_feature.clone(),
+            visited,
+        })
+    }
 
     fn get_completion_points(&self, coord: &Coordinate, tile: &TileData) -> u8
     where
@@ -138,22 +182,17 @@ pub trait BoardData {
             if seen.get(direction).is_some() {
                 continue;
             }
-            let (included, completed) = board.get_feature_tiles(coord, direction);
-            let keys: HashSet<TileClickTarget> = included
-                .iter()
-                .filter(|(result_tile, _direction)| coord == result_tile)
-                .map(|(_, direction)| direction.clone())
-                .collect();
-            for elem in &keys {
+            let feature_result = board.get_connecting_feature_results(coord, direction.clone());
+            for elem in feature_result
+                .as_ref()
+                .map(|x| &x.originators)
+                .unwrap_or(&HashSet::from([]))
+            {
                 seen.insert(elem.clone());
             }
-            data.push(FeatureResult {
-                board: board.clone(),
-                originators: keys,
-                completed,
-                feature: tile.at(direction).clone(),
-                visited: included,
-            });
+            if let Some(feature_result) = feature_result {
+                data.push(feature_result);
+            }
         }
         let mut out: u8 = 0;
 
@@ -171,7 +210,7 @@ pub trait BoardData {
                     board.get_feature_tiles(&derived_coord, &TileClickTarget::Center);
 
                 data.push(FeatureResult {
-                    board: board.clone(),
+                    board: Box::new(&board),
                     originators: HashSet::from([TileClickTarget::Center]),
                     completed,
                     feature: MiniTile::Monastery,
@@ -196,34 +235,6 @@ pub trait BoardData {
     ) -> (HashSet<(Coordinate, TileClickTarget)>, bool) {
         let feature = self.at(initial_coord).map(|tile| tile.at(direction));
         match feature {
-            Some(MiniTile::Road | MiniTile::City) => {
-                let mut complete = true;
-                let mut queue = vec![(*initial_coord, direction.clone())];
-                let mut visited = HashSet::from([(*initial_coord, direction.clone())]);
-
-                while let Some((coord, direction)) = queue.pop() {
-                    if let Some(tile) = self.at(&coord) {
-                        let directions = tile.get_exits(&direction);
-                        let next: Vec<(Coordinate, TileClickTarget)> = directions
-                            .iter()
-                            .map(|direction| {
-                                (
-                                    ConcreteBoard::offset_coordinate(&coord, direction),
-                                    COUPLINGS_MAP.get(direction).unwrap().clone(),
-                                )
-                            })
-                            .filter(|elem| visited.get(elem).is_none())
-                            .collect();
-                        for elem in next {
-                            visited.insert(elem.clone());
-                            queue.push(elem);
-                        }
-                    } else {
-                        complete = false;
-                    }
-                }
-                (visited, complete)
-            }
             Some(MiniTile::Monastery) => {
                 let mut completed = true;
                 let mut out: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
