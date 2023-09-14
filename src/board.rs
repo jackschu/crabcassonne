@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::tile::{MiniTile, TileClickTarget, TileData, CARDINALS};
-use egui::Direction;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 
@@ -115,7 +114,7 @@ impl Board {
             if seen.get(direction).is_some() {
                 continue;
             }
-            let (included, completed) = self.get_feature_tiles(tile, coord, direction);
+            let (included, completed) = self.get_feature_tiles(tile, coord, direction, None);
             let keys: HashSet<TileClickTarget> = included
                 .iter()
                 .filter(|(result_tile, _direction)| coord == result_tile)
@@ -136,18 +135,33 @@ impl Board {
         }
         let mut out: u8 = 0;
 
-        if tile.center_matches(&MiniTile::Monastery) {
-            let (included, completed) =
-                self.get_feature_tiles(tile, coord, &TileClickTarget::Center);
-            data.push(FeatureResult {
-                board: &self,
-                originator_coord: coord.clone(),
-                originators: HashSet::from([TileClickTarget::Center]),
-                originator_tile: tile,
-                completed,
-                feature: MiniTile::Monastery,
-                visited: included,
-            });
+        let mut monestary_checks: Vec<(&TileData, Coordinate)> = OCTAL_DELTAS
+            .iter()
+            .filter_map(|delta| {
+                let coord = (delta.0 + coord.0, delta.1 + coord.1);
+                Some((self.at(&coord)?, coord))
+            })
+            .collect();
+        monestary_checks.push((tile, coord.clone()));
+        for (derived_tile, derived_coord) in monestary_checks {
+            if derived_tile.center_matches(&MiniTile::Monastery) {
+                let (included, completed) = self.get_feature_tiles(
+                    derived_tile,
+                    &derived_coord,
+                    &TileClickTarget::Center,
+                    Some(coord.clone()),
+                );
+
+                data.push(FeatureResult {
+                    board: &self,
+                    originator_coord: coord.clone(),
+                    originators: HashSet::from([TileClickTarget::Center]),
+                    originator_tile: tile,
+                    completed,
+                    feature: MiniTile::Monastery,
+                    visited: included,
+                });
+            }
         }
 
         for datum in data {
@@ -163,11 +177,13 @@ impl Board {
         let offset = DELTAS_MAP.get(direction).unwrap();
         (coord.0 + offset.0, coord.1 + offset.1)
     }
+    // TODO should break this out into monestary and road/city impl
     pub fn get_feature_tiles(
         &self,
         initial_tile: &TileData,
         initial_coord: &Coordinate,
         direction: &TileClickTarget,
+        override_present: Option<Coordinate>,
     ) -> (HashSet<(Coordinate, TileClickTarget)>, bool) {
         let feature = initial_tile.at(direction);
         match feature {
@@ -207,9 +223,16 @@ impl Board {
             MiniTile::Monastery => {
                 let mut completed = true;
                 let mut out: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
+                out.insert((initial_coord.clone(), TileClickTarget::Center));
+
                 for delta in OCTAL_DELTAS {
                     let coord = (initial_coord.0 + delta.0, initial_coord.1 + delta.1);
-                    completed = completed && self.at(&coord).is_some();
+                    completed = completed
+                        && (override_present
+                            .map(|other| coord == other)
+                            .unwrap_or(false)
+                            || coord == *initial_coord
+                            || self.at(&coord).is_some());
                     out.insert((coord, TileClickTarget::Center));
                 }
                 (out, completed)
@@ -358,6 +381,34 @@ mod tests {
                 .into()
             )
         );
+    }
+
+    #[test]
+    fn complete_monestary() {
+        let mut board = Board::default();
+
+        let tile_monestary: TileData = TileDataBuilder {
+            center: MiniTile::Monastery,
+            ..Default::default()
+        }
+        .into();
+        board.set((30, 30), tile_monestary);
+
+        let tile: TileData = TileDataBuilder {
+            ..Default::default()
+        }
+        .into();
+
+        board.set((30, 31), tile.clone());
+        board.set((29, 31), tile.clone());
+        board.set((31, 31), tile.clone());
+
+        board.set((30, 29), tile.clone());
+        board.set((31, 29), tile.clone());
+        board.set((29, 29), tile.clone());
+
+        board.set((29, 30), tile.clone());
+        assert_eq!(board.get_completion_points(&(31, 30), &tile), 9);
     }
 
     #[test]
