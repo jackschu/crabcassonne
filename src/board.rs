@@ -48,6 +48,7 @@ static COUPLINGS_MAP: Lazy<HashMap<TileClickTarget, TileClickTarget>> =
 struct FeatureResult<'a> {
     pub originators: HashSet<TileClickTarget>,
     pub originator_coord: Coordinate,
+    pub originator_tile: &'a TileData,
     pub completed: bool,
     pub feature: MiniTile,
     pub visited: HashSet<(Coordinate, TileClickTarget)>,
@@ -74,7 +75,13 @@ impl FeatureResult<'_> {
                 if is_city {
                     unit_count += self
                         .get_present_tiles()
-                        .filter_map(|coord| self.board.at(coord))
+                        .filter_map(|coord| {
+                            if coord == &self.originator_coord {
+                                Some(self.originator_tile)
+                            } else {
+                                self.board.at(coord)
+                            }
+                        })
                         .filter(|tile| tile.has_emblem)
                         .count() as u8;
                 }
@@ -121,6 +128,7 @@ impl Board {
                 board: &self,
                 originator_coord: coord.clone(),
                 originators: keys,
+                originator_tile: tile,
                 completed,
                 feature: tile.at(direction).clone(),
                 visited: included,
@@ -135,6 +143,7 @@ impl Board {
                 board: &self,
                 originator_coord: coord.clone(),
                 originators: HashSet::from([TileClickTarget::Center]),
+                originator_tile: tile,
                 completed,
                 feature: MiniTile::Monastery,
                 visited: included,
@@ -296,21 +305,60 @@ mod tests {
         assert!(board.is_features_match(&(30, 31), &tile_right));
     }
 
-    // #[test]
-    // fn feature_completion_test() {
-    //     let mut board = Board::default();
-    //     let tile_city: TileData = TileDataBuilder {
-    //         top: MiniTile::City,
-    //         left: MiniTile::City,
-    //         right: MiniTile::City,
-    //         bottom: MiniTile::City,
-    //         ..Default::default()
-    //     }
-    //     .into();
+    #[test]
+    fn feature_completion_test() {
+        let mut board = Board::default();
 
-    //     board.get_completion_points(&tile_city, &(30, 30));
-    //     assert!(false);
-    // }
+        board.set(
+            (30, 30),
+            TileDataBuilder {
+                right: MiniTile::City,
+                ..Default::default()
+            }
+            .into(),
+        );
+        board.set(
+            (30, 31),
+            TileDataBuilder {
+                right: MiniTile::City,
+                left: MiniTile::City,
+                bottom: MiniTile::City,
+                center: MiniTile::City,
+                ..Default::default()
+            }
+            .into(),
+        );
+        board.set(
+            (31, 31),
+            TileDataBuilder {
+                top: MiniTile::City,
+                ..Default::default()
+            }
+            .into(),
+        );
+        board.set(
+            (29, 32),
+            TileDataBuilder {
+                bottom: MiniTile::City,
+                ..Default::default()
+            }
+            .into(),
+        );
+        assert_eq!(
+            12,
+            board.get_completion_points(
+                &(30, 32),
+                &TileDataBuilder {
+                    has_emblem: true,
+                    top: MiniTile::City,
+                    left: MiniTile::City,
+                    center: MiniTile::City,
+                    ..Default::default()
+                }
+                .into()
+            )
+        );
+    }
 
     #[test]
     fn features_match_surround_city() {
