@@ -206,16 +206,11 @@ pub trait BoardData {
         monestary_checks.push((tile, *coord));
         for (derived_tile, derived_coord) in monestary_checks {
             if derived_tile.center_matches(&MiniTile::Monastery) {
-                let (included, completed) =
-                    board.get_feature_tiles(&derived_coord, &TileClickTarget::Center);
-
-                data.push(FeatureResult {
-                    board: Box::new(&board),
-                    originators: HashSet::from([TileClickTarget::Center]),
-                    completed,
-                    feature: MiniTile::Monastery,
-                    visited: included,
-                });
+                let maybe_result =
+                    board.get_monestary_feature_result(&derived_coord, &TileClickTarget::Center);
+                if let Some(feature_result) = maybe_result {
+                    data.push(feature_result);
+                }
             }
         }
 
@@ -227,29 +222,37 @@ pub trait BoardData {
 
         out
     }
-    // TODO should break this out into monestary and road/city impl
-    fn get_feature_tiles(
+
+    fn get_monestary_feature_result(
         &self,
         initial_coord: &Coordinate,
         direction: &TileClickTarget,
-    ) -> (HashSet<(Coordinate, TileClickTarget)>, bool) {
-        let feature = self.at(initial_coord).map(|tile| tile.at(direction));
-        match feature {
-            Some(MiniTile::Monastery) => {
-                let mut completed = true;
-                let mut out: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
-                out.insert((*initial_coord, TileClickTarget::Center));
-
-                for delta in OCTAL_DELTAS {
-                    let coord = (initial_coord.0 + delta.0, initial_coord.1 + delta.1);
-                    completed = completed && self.at(&coord).is_some();
-                    out.insert((coord, TileClickTarget::Center));
-                }
-                (out, completed)
-            }
-            _ => (HashSet::from([]), false),
+    ) -> Option<FeatureResult>
+    where
+        Self: Sized,
+    {
+        let feature = self.at(initial_coord).map(|tile| tile.at(direction))?;
+        if feature != &MiniTile::Monastery {
+            return None;
         }
+        let mut completed = true;
+        let mut out: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
+        out.insert((*initial_coord, TileClickTarget::Center));
+
+        for delta in OCTAL_DELTAS {
+            let coord = (initial_coord.0 + delta.0, initial_coord.1 + delta.1);
+            completed = completed && self.at(&coord).is_some();
+            out.insert((coord, TileClickTarget::Center));
+        }
+        Some(FeatureResult {
+            board: Box::new(self),
+            originators: HashSet::from([TileClickTarget::Center]),
+            completed,
+            feature: MiniTile::Monastery,
+            visited: out,
+        })
     }
+
     fn get_legal_tiles(&self) -> HashSet<Coordinate> {
         self.tiles_present()
             .flat_map(|tile| -> HashSet<Coordinate> {
