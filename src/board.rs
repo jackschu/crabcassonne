@@ -52,7 +52,8 @@ struct FeatureResult<'a> {
     pub board: OverlaidBoard<'a>,
 }
 
-struct OverlaidBoard<'a> {
+#[derive(Clone)]
+pub struct OverlaidBoard<'a> {
     pub board: Box<&'a dyn BoardData>,
     pub overlay: HashMap<Coordinate, &'a TileData>,
 }
@@ -118,6 +119,12 @@ pub trait BoardData {
     where
         Self: Sized,
     {
+        let overlay: HashMap<Coordinate, &TileData> = HashMap::from([(*coord, tile)]);
+        let board = OverlaidBoard {
+            board: Box::new(self),
+            overlay,
+        };
+
         let mut data: Vec<FeatureResult> = vec![];
         // prevent double reporting single tile
         let mut seen: HashSet<TileClickTarget> = HashSet::from([]);
@@ -125,7 +132,7 @@ pub trait BoardData {
             if seen.get(direction).is_some() {
                 continue;
             }
-            let (included, completed) = self.get_feature_tiles(tile, coord, direction, None);
+            let (included, completed) = board.get_feature_tiles(tile, coord, direction);
             let keys: HashSet<TileClickTarget> = included
                 .iter()
                 .filter(|(result_tile, _direction)| coord == result_tile)
@@ -134,12 +141,8 @@ pub trait BoardData {
             for elem in &keys {
                 seen.insert(elem.clone());
             }
-            let overlay: HashMap<Coordinate, &TileData> = HashMap::from([(*coord, tile)]);
             data.push(FeatureResult {
-                board: OverlaidBoard {
-                    board: Box::new(self),
-                    overlay,
-                },
+                board: board.clone(),
                 originators: keys,
                 completed,
                 feature: tile.at(direction).clone(),
@@ -152,25 +155,17 @@ pub trait BoardData {
             .iter()
             .filter_map(|delta| {
                 let coord = (delta.0 + coord.0, delta.1 + coord.1);
-                Some((self.at(&coord)?, coord))
+                Some((board.at(&coord)?, coord))
             })
             .collect();
         monestary_checks.push((tile, *coord));
         for (derived_tile, derived_coord) in monestary_checks {
             if derived_tile.center_matches(&MiniTile::Monastery) {
-                let (included, completed) = self.get_feature_tiles(
-                    derived_tile,
-                    &derived_coord,
-                    &TileClickTarget::Center,
-                    Some(*coord),
-                );
+                let (included, completed) =
+                    board.get_feature_tiles(derived_tile, &derived_coord, &TileClickTarget::Center);
 
-                let overlay: HashMap<Coordinate, &TileData> = HashMap::from([(*coord, tile)]);
                 data.push(FeatureResult {
-                    board: OverlaidBoard {
-                        board: Box::new(self),
-                        overlay,
-                    },
+                    board: board.clone(),
                     originators: HashSet::from([TileClickTarget::Center]),
                     completed,
                     feature: MiniTile::Monastery,
@@ -193,7 +188,6 @@ pub trait BoardData {
         initial_tile: &TileData,
         initial_coord: &Coordinate,
         direction: &TileClickTarget,
-        override_present: Option<Coordinate>,
     ) -> (HashSet<(Coordinate, TileClickTarget)>, bool) {
         let feature = initial_tile.at(direction);
         match feature {
@@ -203,12 +197,7 @@ pub trait BoardData {
                 let mut visited = HashSet::from([(*initial_coord, direction.clone())]);
 
                 while let Some((coord, direction)) = queue.pop() {
-                    let maybe_tile = if coord == *initial_coord {
-                        Some(initial_tile)
-                    } else {
-                        self.at(&coord)
-                    };
-                    if let Some(tile) = maybe_tile {
+                    if let Some(tile) = self.at(&coord) {
                         let directions = tile.get_exits(&direction);
                         let next: Vec<(Coordinate, TileClickTarget)> = directions
                             .iter()
@@ -237,12 +226,7 @@ pub trait BoardData {
 
                 for delta in OCTAL_DELTAS {
                     let coord = (initial_coord.0 + delta.0, initial_coord.1 + delta.1);
-                    completed = completed
-                        && (override_present
-                            .map(|other| coord == other)
-                            .unwrap_or(false)
-                            || coord == *initial_coord
-                            || self.at(&coord).is_some());
+                    completed = completed && self.at(&coord).is_some();
                     out.insert((coord, TileClickTarget::Center));
                 }
                 (out, completed)
@@ -311,6 +295,12 @@ impl ConcreteBoard {
     fn offset_coordinate(coord: &Coordinate, direction: &TileClickTarget) -> Coordinate {
         let offset = DELTAS_MAP.get(direction).unwrap();
         (coord.0 + offset.0, coord.1 + offset.1)
+    }
+    fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
+        OverlaidBoard {
+            board: Box::new(self),
+            overlay: HashMap::from([(coord, tile)]),
+        }
     }
 }
 
@@ -444,6 +434,7 @@ mod tests {
         board.set((29, 29), tile.clone());
 
         board.set((29, 30), tile.clone());
+
         assert_eq!(board.get_completion_points(&(31, 30), &tile), 9);
     }
 
