@@ -115,6 +115,12 @@ pub trait BoardData {
     }
     fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_>;
 
+    // fn get_connecting_feature_results(&self, coord: &Coordinate, tile: &TileData) -> FeatureResult
+    // where
+    //     Self: Sized,
+    // {
+    // }
+
     fn get_completion_points(&self, coord: &Coordinate, tile: &TileData) -> u8
     where
         Self: Sized,
@@ -132,7 +138,7 @@ pub trait BoardData {
             if seen.get(direction).is_some() {
                 continue;
             }
-            let (included, completed) = board.get_feature_tiles(tile, coord, direction);
+            let (included, completed) = board.get_feature_tiles(coord, direction);
             let keys: HashSet<TileClickTarget> = included
                 .iter()
                 .filter(|(result_tile, _direction)| coord == result_tile)
@@ -162,7 +168,7 @@ pub trait BoardData {
         for (derived_tile, derived_coord) in monestary_checks {
             if derived_tile.center_matches(&MiniTile::Monastery) {
                 let (included, completed) =
-                    board.get_feature_tiles(derived_tile, &derived_coord, &TileClickTarget::Center);
+                    board.get_feature_tiles(&derived_coord, &TileClickTarget::Center);
 
                 data.push(FeatureResult {
                     board: board.clone(),
@@ -185,13 +191,12 @@ pub trait BoardData {
     // TODO should break this out into monestary and road/city impl
     fn get_feature_tiles(
         &self,
-        initial_tile: &TileData,
         initial_coord: &Coordinate,
         direction: &TileClickTarget,
     ) -> (HashSet<(Coordinate, TileClickTarget)>, bool) {
-        let feature = initial_tile.at(direction);
+        let feature = self.at(initial_coord).map(|tile| tile.at(direction));
         match feature {
-            MiniTile::Road | MiniTile::City => {
+            Some(MiniTile::Road | MiniTile::City) => {
                 let mut complete = true;
                 let mut queue = vec![(*initial_coord, direction.clone())];
                 let mut visited = HashSet::from([(*initial_coord, direction.clone())]);
@@ -219,7 +224,7 @@ pub trait BoardData {
                 }
                 (visited, complete)
             }
-            MiniTile::Monastery => {
+            Some(MiniTile::Monastery) => {
                 let mut completed = true;
                 let mut out: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
                 out.insert((*initial_coord, TileClickTarget::Center));
