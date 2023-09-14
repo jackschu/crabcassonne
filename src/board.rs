@@ -131,10 +131,20 @@ impl Board {
         if tile.center_matches(&MiniTile::Monastery) {
             let (included, completed) =
                 self.get_feature_tiles(tile, coord, &TileClickTarget::Center);
+            data.push(FeatureResult {
+                board: &self,
+                originator_coord: coord.clone(),
+                originators: HashSet::from([TileClickTarget::Center]),
+                completed,
+                feature: MiniTile::Monastery,
+                visited: included,
+            });
         }
 
         for datum in data {
-            out += datum.get_score(false);
+            let score = datum.get_score(false);
+            println!("score {} feature {:?}", score, datum.feature);
+            out += score;
         }
 
         out

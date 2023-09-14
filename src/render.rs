@@ -115,6 +115,14 @@ fn tile_ui(
             default_color
         };
 
+    let emblem_rect = Rect::from_center_size(
+        pos2(
+            center.x + (-1 as f32) * mini_size,
+            center.y + (-1 as f32) * mini_size,
+        ),
+        vec2(mini_size / 1.5, mini_size / 1.5),
+    );
+    let emblem_color = Color32::from_rgb(133, 50, 168);
     if ui.is_rect_visible(rect) {
         let visuals = ui.style().interact(&response);
         let preview_tile = if response.hovered() && tile.is_none() {
@@ -139,6 +147,9 @@ fn tile_ui(
                     mini_rect,
                     get_color(&def.target, Some(tile), true).gamma_multiply(0.5),
                 );
+            }
+            if tile.has_emblem {
+                rect_paint(ui, emblem_rect, emblem_color.gamma_multiply(0.5));
             }
         } else {
             ui.painter()
@@ -195,6 +206,9 @@ fn tile_ui(
                 );
             });
         }
+    }
+    if tile.map(|tile| tile.has_emblem).unwrap_or(false) {
+        rect_paint(ui, emblem_rect, emblem_color);
     }
 
     response
