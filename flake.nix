@@ -1,3 +1,7 @@
+# maintain with
+# nix flake lock --update-input cargo2nix
+# nix run github:cargo2nix/cargo2nix
+# patch -p1 -R -i zvariant.patch 
 {
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
@@ -60,9 +64,6 @@
           cp -rs --no-preserve=mode,ownership "${
             rustPkgs.workspace.crabcassonne { }
           }" $out
-          ls -al $out/bin
-          echo "${libPath}"
-
           wrapProgram "$out/bin/crabcassonne" --prefix LD_LIBRARY_PATH : "${libPath}"
         '';
 
