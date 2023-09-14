@@ -124,8 +124,8 @@ impl Board {
                 seen.insert(elem.clone());
             }
             data.push(FeatureResult {
-                board: &self,
-                originator_coord: coord.clone(),
+                board: self,
+                originator_coord: *coord,
                 originators: keys,
                 originator_tile: tile,
                 completed,
@@ -142,19 +142,19 @@ impl Board {
                 Some((self.at(&coord)?, coord))
             })
             .collect();
-        monestary_checks.push((tile, coord.clone()));
+        monestary_checks.push((tile, *coord));
         for (derived_tile, derived_coord) in monestary_checks {
             if derived_tile.center_matches(&MiniTile::Monastery) {
                 let (included, completed) = self.get_feature_tiles(
                     derived_tile,
                     &derived_coord,
                     &TileClickTarget::Center,
-                    Some(coord.clone()),
+                    Some(*coord),
                 );
 
                 data.push(FeatureResult {
-                    board: &self,
-                    originator_coord: coord.clone(),
+                    board: self,
+                    originator_coord: *coord,
                     originators: HashSet::from([TileClickTarget::Center]),
                     originator_tile: tile,
                     completed,
@@ -223,7 +223,7 @@ impl Board {
             MiniTile::Monastery => {
                 let mut completed = true;
                 let mut out: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
-                out.insert((initial_coord.clone(), TileClickTarget::Center));
+                out.insert((*initial_coord, TileClickTarget::Center));
 
                 for delta in OCTAL_DELTAS {
                     let coord = (initial_coord.0 + delta.0, initial_coord.1 + delta.1);

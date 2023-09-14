@@ -117,8 +117,8 @@ fn tile_ui(
 
     let emblem_rect = Rect::from_center_size(
         pos2(
-            center.x + (-1 as f32) * mini_size,
-            center.y + (-1 as f32) * mini_size,
+            center.x + -1_f32 * mini_size,
+            center.y + -1_f32 * mini_size,
         ),
         vec2(mini_size / 1.5, mini_size / 1.5),
     );
