@@ -46,12 +46,34 @@ static COUPLINGS_MAP: Lazy<HashMap<TileClickTarget, TileClickTarget>> =
 
 struct FeatureResult<'a> {
     pub originators: HashSet<TileClickTarget>,
-    pub originator_coord: Coordinate,
-    pub originator_tile: &'a TileData,
     pub completed: bool,
     pub feature: MiniTile,
     pub visited: HashSet<(Coordinate, TileClickTarget)>,
+    pub board: OverlaidBoard<'a>,
+}
+
+struct OverlaidBoard<'a> {
     pub board: &'a Board,
+    pub overlay: HashMap<Coordinate, &'a TileData>,
+}
+
+impl OverlaidBoard<'_> {
+    pub fn at(&self, coord: &Coordinate) -> Option<&TileData> {
+        if let Some(tile) = self.overlay.get(coord) {
+            Some(tile)
+        } else {
+            self.board.at(coord)
+        }
+    }
+}
+
+impl<'a> Into<OverlaidBoard<'a>> for &'a Board {
+    fn into(self) -> OverlaidBoard<'a> {
+        OverlaidBoard {
+            board: self,
+            overlay: HashMap::from([]),
+        }
+    }
 }
 
 impl FeatureResult<'_> {
@@ -60,7 +82,7 @@ impl FeatureResult<'_> {
             .iter()
             .map(|(coord, _)| coord)
             .unique()
-            .filter(|coord| *coord == &self.originator_coord || self.board.at(coord).is_some())
+            .filter(|coord| self.board.at(coord).is_some())
     }
     pub fn get_score(&self, is_endgame: bool) -> u8 {
         if !is_endgame && !self.completed {
@@ -74,13 +96,7 @@ impl FeatureResult<'_> {
                 if is_city {
                     unit_count += self
                         .get_present_tiles()
-                        .filter_map(|coord| {
-                            if coord == &self.originator_coord {
-                                Some(self.originator_tile)
-                            } else {
-                                self.board.at(coord)
-                            }
-                        })
+                        .filter_map(|coord| self.board.at(coord))
                         .filter(|tile| tile.has_emblem)
                         .count() as u8;
                 }
@@ -123,11 +139,13 @@ impl Board {
             for elem in &keys {
                 seen.insert(elem.clone());
             }
+            let overlay: HashMap<Coordinate, &TileData> = HashMap::from([(*coord, tile)]);
             data.push(FeatureResult {
-                board: self,
-                originator_coord: *coord,
+                board: OverlaidBoard {
+                    board: self,
+                    overlay,
+                },
                 originators: keys,
-                originator_tile: tile,
                 completed,
                 feature: tile.at(direction).clone(),
                 visited: included,
@@ -152,11 +170,13 @@ impl Board {
                     Some(*coord),
                 );
 
+                let overlay: HashMap<Coordinate, &TileData> = HashMap::from([(*coord, tile)]);
                 data.push(FeatureResult {
-                    board: self,
-                    originator_coord: *coord,
+                    board: OverlaidBoard {
+                        board: self,
+                        overlay,
+                    },
                     originators: HashSet::from([TileClickTarget::Center]),
-                    originator_tile: tile,
                     completed,
                     feature: MiniTile::Monastery,
                     visited: included,
