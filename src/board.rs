@@ -9,7 +9,7 @@ pub const BOARD_DIM: usize = 72;
 pub type Coordinate = (i8, i8);
 
 #[derive(Clone, Default)]
-pub struct Board {
+pub struct ConcreteBoard {
     data: HashMap<Coordinate, TileData>,
 }
 
@@ -53,26 +53,25 @@ struct FeatureResult<'a> {
 }
 
 struct OverlaidBoard<'a> {
-    pub board: &'a Board,
+    pub board: Box<&'a dyn BoardData>,
     pub overlay: HashMap<Coordinate, &'a TileData>,
 }
 
-impl OverlaidBoard<'_> {
-    pub fn at(&self, coord: &Coordinate) -> Option<&TileData> {
+impl BoardData for OverlaidBoard<'_> {
+    fn at(&self, coord: &Coordinate) -> Option<&TileData> {
         if let Some(tile) = self.overlay.get(coord) {
             Some(tile)
         } else {
             self.board.at(coord)
         }
     }
-}
-
-impl<'a> Into<OverlaidBoard<'a>> for &'a Board {
-    fn into(self) -> OverlaidBoard<'a> {
-        OverlaidBoard {
-            board: self,
-            overlay: HashMap::from([]),
-        }
+    fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_> {
+        Box::new(
+            self.board
+                .tiles_present()
+                .chain(self.overlay.iter().map(|x| *x.0))
+                .unique(),
+        )
     }
 }
 
@@ -108,21 +107,17 @@ impl FeatureResult<'_> {
     }
 }
 
-impl Board {
-    pub fn at(&self, coord: &Coordinate) -> Option<&TileData> {
-        self.data.get(coord)
+pub trait BoardData {
+    fn at(&self, coord: &Coordinate) -> Option<&TileData>;
+    fn tiles_placed(&self) -> u32 {
+        self.tiles_present().count() as u32
     }
-    pub fn at_mut(&mut self, coord: &Coordinate) -> Option<&mut TileData> {
-        self.data.get_mut(coord)
-    }
-    pub fn set(&mut self, coord: Coordinate, tile: TileData) {
-        self.data.insert(coord, tile);
-    }
-    pub fn tiles_placed(&self) -> u32 {
-        self.data.len() as u32
-    }
+    fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_>;
 
-    pub fn get_completion_points(&self, coord: &Coordinate, tile: &TileData) -> u8 {
+    fn get_completion_points(&self, coord: &Coordinate, tile: &TileData) -> u8
+    where
+        Self: Sized,
+    {
         let mut data: Vec<FeatureResult> = vec![];
         // prevent double reporting single tile
         let mut seen: HashSet<TileClickTarget> = HashSet::from([]);
@@ -142,7 +137,7 @@ impl Board {
             let overlay: HashMap<Coordinate, &TileData> = HashMap::from([(*coord, tile)]);
             data.push(FeatureResult {
                 board: OverlaidBoard {
-                    board: self,
+                    board: Box::new(self),
                     overlay,
                 },
                 originators: keys,
@@ -173,7 +168,7 @@ impl Board {
                 let overlay: HashMap<Coordinate, &TileData> = HashMap::from([(*coord, tile)]);
                 data.push(FeatureResult {
                     board: OverlaidBoard {
-                        board: self,
+                        board: Box::new(self),
                         overlay,
                     },
                     originators: HashSet::from([TileClickTarget::Center]),
@@ -192,13 +187,8 @@ impl Board {
 
         out
     }
-
-    fn offset_coordinate(coord: &Coordinate, direction: &TileClickTarget) -> Coordinate {
-        let offset = DELTAS_MAP.get(direction).unwrap();
-        (coord.0 + offset.0, coord.1 + offset.1)
-    }
     // TODO should break this out into monestary and road/city impl
-    pub fn get_feature_tiles(
+    fn get_feature_tiles(
         &self,
         initial_tile: &TileData,
         initial_coord: &Coordinate,
@@ -224,7 +214,7 @@ impl Board {
                             .iter()
                             .map(|direction| {
                                 (
-                                    Board::offset_coordinate(&coord, direction),
+                                    ConcreteBoard::offset_coordinate(&coord, direction),
                                     COUPLINGS_MAP.get(direction).unwrap().clone(),
                                 )
                             })
@@ -260,16 +250,14 @@ impl Board {
             _ => (HashSet::from([]), false),
         }
     }
-
-    pub fn get_legal_tiles(&self) -> HashSet<Coordinate> {
-        self.data
-            .keys()
+    fn get_legal_tiles(&self) -> HashSet<Coordinate> {
+        self.tiles_present()
             .flat_map(|tile| -> HashSet<Coordinate> {
                 DELTAS
                     .iter()
                     .filter_map(|delta| {
                         let coord = (delta.0 + tile.0, delta.1 + tile.1);
-                        if self.data.contains_key(&coord) {
+                        if self.contains_coord(&coord) {
                             None
                         } else {
                             Some(coord)
@@ -280,7 +268,11 @@ impl Board {
             .collect()
     }
 
-    pub fn is_features_match(&self, dest: &Coordinate, incoming_tile: &TileData) -> bool {
+    fn contains_coord(&self, coord: &Coordinate) -> bool {
+        self.at(coord).is_some()
+    }
+
+    fn is_features_match(&self, dest: &Coordinate, incoming_tile: &TileData) -> bool {
         DELTAS
             .iter()
             .map(|delta| self.at(&(delta.0 + dest.0, delta.1 + dest.1)))
@@ -298,6 +290,30 @@ impl Board {
     }
 }
 
+impl BoardData for ConcreteBoard {
+    fn at(&self, coord: &Coordinate) -> Option<&TileData> {
+        self.data.get(coord)
+    }
+    fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_> {
+        Box::new(self.data.iter().map(|x| *x.0))
+    }
+}
+
+impl ConcreteBoard {
+    pub fn at_mut(&mut self, coord: &Coordinate) -> Option<&mut TileData> {
+        self.data.get_mut(coord)
+    }
+
+    pub fn set(&mut self, coord: Coordinate, tile: TileData) {
+        self.data.insert(coord, tile);
+    }
+
+    fn offset_coordinate(coord: &Coordinate, direction: &TileClickTarget) -> Coordinate {
+        let offset = DELTAS_MAP.get(direction).unwrap();
+        (coord.0 + offset.0, coord.1 + offset.1)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::assert_eq;
@@ -311,7 +327,7 @@ mod tests {
 
     #[test]
     fn legal_tiles() {
-        let mut board = Board::default();
+        let mut board = ConcreteBoard::default();
         let mut bag = TileBag::default();
         board.set((30, 30), bag.pull().unwrap());
         assert_eq!(board.get_legal_tiles().len(), 4);
@@ -328,7 +344,7 @@ mod tests {
     }
     #[test]
     fn features_match_basic() {
-        let mut board = Board::default();
+        let mut board = ConcreteBoard::default();
         let tile_left: TileData = TileDataBuilder {
             top: MiniTile::City,
             left: MiniTile::Road,
@@ -350,7 +366,7 @@ mod tests {
 
     #[test]
     fn feature_completion_test() {
-        let mut board = Board::default();
+        let mut board = ConcreteBoard::default();
 
         board.set(
             (30, 30),
@@ -405,7 +421,7 @@ mod tests {
 
     #[test]
     fn complete_monestary() {
-        let mut board = Board::default();
+        let mut board = ConcreteBoard::default();
 
         let tile_monestary: TileData = TileDataBuilder {
             center: MiniTile::Monastery,
@@ -433,7 +449,7 @@ mod tests {
 
     #[test]
     fn features_match_surround_city() {
-        let mut board = Board::default();
+        let mut board = ConcreteBoard::default();
 
         let tile_city: TileData = TileDataBuilder {
             top: MiniTile::City,

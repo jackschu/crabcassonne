@@ -1,13 +1,14 @@
 use std::sync::mpsc::{Receiver, Sender};
 
 use crate::{
-    board::Board,
+    board::BoardData,
+    board::ConcreteBoard,
     render::{InteractionMessage, RenderMessage},
     tilebag::TileBag,
 };
 
 pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<RenderMessage>) {
-    let mut board = Board::default();
+    let mut board = ConcreteBoard::default();
     let mut tilebag = TileBag::default();
     if let Some(tile) = tilebag.peek() {
         sender

@@ -4,7 +4,7 @@ use eframe::egui;
 use egui::{pos2, vec2, Color32, Id, Rect, Stroke};
 
 use crate::{
-    board::{Board, Coordinate, BOARD_DIM},
+    board::{BoardData, ConcreteBoard, Coordinate, BOARD_DIM},
     tile::{MiniTile, Rotation, TileClickTarget, TileData},
 };
 
@@ -21,13 +21,13 @@ pub enum InteractionMessage {
 }
 
 pub enum RenderMessage {
-    NewBoard(Board),
+    NewBoard(ConcreteBoard),
     PreviewTile(TileData),
 }
 
 pub struct MyApp {
     zoom: usize,
-    board: Board,
+    board: ConcreteBoard,
     preview_tile: Option<TileData>,
     pub output_channel: Sender<InteractionMessage>,
     pub input_channel: Receiver<RenderMessage>,
@@ -42,7 +42,7 @@ impl MyApp {
     ) -> Self {
         Self {
             zoom: 80,
-            board: Board::default(),
+            board: ConcreteBoard::default(),
             preview_tile: None,
             output_channel,
             input_channel: board_channel,
@@ -116,10 +116,7 @@ fn tile_ui(
         };
 
     let emblem_rect = Rect::from_center_size(
-        pos2(
-            center.x + -1_f32 * mini_size,
-            center.y + -1_f32 * mini_size,
-        ),
+        pos2(center.x + -1_f32 * mini_size, center.y + -1_f32 * mini_size),
         vec2(mini_size / 1.5, mini_size / 1.5),
     );
     let emblem_color = Color32::from_rgb(133, 50, 168);
