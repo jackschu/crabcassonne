@@ -1,10 +1,14 @@
-use std::sync::mpsc::{Receiver, Sender};
+use std::{
+    collections::HashMap,
+    sync::mpsc::{Receiver, Sender},
+};
 
 use eframe::egui;
 use egui::{pos2, vec2, Color32, Id, Rect, Stroke};
 
 use crate::{
     board::{BoardData, ConcreteBoard, Coordinate, BOARD_DIM},
+    referee::Player,
     tile::{MiniTile, Rotation, TileClickTarget, TileData},
 };
 
@@ -20,15 +24,21 @@ pub enum InteractionMessage {
     Click(ClickMessage),
 }
 
+pub struct RenderState {
+    pub preview_tile: Option<TileData>,
+    pub board: ConcreteBoard,
+    pub turn_order: Vec<Player>,
+    pub current_player: Player,
+    pub player_scores: HashMap<Player, u32>,
+}
+
 pub enum RenderMessage {
-    NewBoard(ConcreteBoard),
-    PreviewTile(TileData),
+    RefereeSync(RenderState),
 }
 
 pub struct MyApp {
     zoom: usize,
-    board: ConcreteBoard,
-    preview_tile: Option<TileData>,
+    render_state: Option<RenderState>,
     pub output_channel: Sender<InteractionMessage>,
     pub input_channel: Receiver<RenderMessage>,
 }
@@ -42,8 +52,7 @@ impl MyApp {
     ) -> Self {
         Self {
             zoom: 80,
-            board: ConcreteBoard::default(),
-            preview_tile: None,
+            render_state: None,
             output_channel,
             input_channel: board_channel,
         }
@@ -240,8 +249,7 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         while let Ok(message) = self.input_channel.try_recv() {
             match message {
-                RenderMessage::NewBoard(board) => self.board = board,
-                RenderMessage::PreviewTile(tile) => self.preview_tile = Some(tile),
+                RenderMessage::RefereeSync(state) => self.render_state = Some(state),
             }
         }
 
@@ -266,7 +274,11 @@ impl eframe::App for MyApp {
                             #[allow(clippy::single_match)] // may expand
                             match key {
                                 egui::Key::R => {
-                                    if let Some(preview_tile) = &mut self.preview_tile {
+                                    if let Some(preview_tile) = self
+                                        .render_state
+                                        .as_mut()
+                                        .and_then(|state| state.preview_tile.as_mut())
+                                    {
                                         preview_tile.rotate_right()
                                     }
                                 }
@@ -285,38 +297,40 @@ impl eframe::App for MyApp {
             // grid = grid.min_row_height(size);
             // grid = grid.min_col_width(size);
             // grid = grid.max_col_width(size);
-            egui::ScrollArea::both()
-                .drag_to_scroll(true)
-                .show(ui, |ui| {
-                    grid.show(ui, |ui| {
-                        for r in 0..grid_rows {
-                            for c in 0..grid_cols {
-                                let coord = (r as i8, c as i8);
-                                let response = ui
-                                    .push_id(coord, |ui| {
-                                        ui.add(tile(
-                                            self.zoom as f32,
-                                            self.board.at(&coord),
-                                            coord,
-                                            &self.preview_tile,
-                                        ))
+            if let Some(state) = &self.render_state {
+                egui::ScrollArea::both()
+                    .drag_to_scroll(true)
+                    .show(ui, |ui| {
+                        grid.show(ui, |ui| {
+                            for r in 0..grid_rows {
+                                for c in 0..grid_cols {
+                                    let coord = (r as i8, c as i8);
+                                    let response = ui
+                                        .push_id(coord, |ui| {
+                                            ui.add(tile(
+                                                self.zoom as f32,
+                                                state.board.at(&coord),
+                                                coord,
+                                                &state.preview_tile,
+                                            ))
+                                        })
+                                        .inner;
+                                    response.ctx.data_mut(|map| {
+                                        let subtile_id = Id::new(SUBTILE_ID);
+                                        let maybe_val = map.get_temp::<ClickMessage>(subtile_id);
+                                        if let Some(val) = maybe_val {
+                                            self.output_channel
+                                                .send(InteractionMessage::Click(val))
+                                                .unwrap();
+                                        }
+                                        map.remove::<ClickMessage>(subtile_id);
                                     })
-                                    .inner;
-                                response.ctx.data_mut(|map| {
-                                    let subtile_id = Id::new(SUBTILE_ID);
-                                    let maybe_val = map.get_temp::<ClickMessage>(subtile_id);
-                                    if let Some(val) = maybe_val {
-                                        self.output_channel
-                                            .send(InteractionMessage::Click(val))
-                                            .unwrap();
-                                    }
-                                    map.remove::<ClickMessage>(subtile_id);
-                                })
+                                }
+                                ui.end_row();
                             }
-                            ui.end_row();
-                        }
+                        });
                     });
-                });
+            };
         });
     }
 }

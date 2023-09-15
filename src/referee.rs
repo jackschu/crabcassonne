@@ -6,7 +6,7 @@ use std::{
 use crate::{
     board::BoardData,
     board::{ConcreteBoard, Coordinate},
-    render::{InteractionMessage, RenderMessage},
+    render::{InteractionMessage, RenderMessage, RenderState},
     tile::TileData,
     tilebag::TileBag,
 };
@@ -32,8 +32,21 @@ impl Default for RefereeState {
 }
 
 impl RefereeState {
+    pub fn clone_into(&self) -> RenderState {
+        let player = self.get_player();
+        RenderState {
+            preview_tile: self.tilebag.peek().map(|x| x.clone()),
+            board: self.board.clone(),
+            turn_order: self.turn_order.clone(),
+            current_player: player,
+            player_scores: self.player_scores.clone(),
+        }
+    }
     pub fn progress_turn(&mut self) {
         self.turn_idx = (self.turn_idx + 1) % self.turn_order.len();
+    }
+    pub fn get_player(&self) -> Player {
+        self.turn_order[self.turn_idx].clone()
     }
     pub fn is_legal_placement(&self, coord: Coordinate, tile: &TileData) -> bool {
         if self.board.tiles_placed() == 0 {
@@ -59,15 +72,10 @@ pub enum Player {
 
 pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<RenderMessage>) {
     let mut state = RefereeState::default();
-    if let Some(tile) = state.tilebag.peek() {
-        sender
-            .send(RenderMessage::PreviewTile(tile.clone()))
-            .unwrap();
-    }
+    sender
+        .send(RenderMessage::RefereeSync(state.clone_into()))
+        .unwrap();
     loop {
-        sender
-            .send(RenderMessage::NewBoard(state.board.clone()))
-            .unwrap();
         match receiver.recv().unwrap() {
             InteractionMessage::Print(message) => {
                 println!("recv {}", message);
@@ -88,12 +96,10 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
                 } else {
                     println!("out of tiles");
                 }
-                if let Some(tile) = state.tilebag.peek() {
-                    sender
-                        .send(RenderMessage::PreviewTile(tile.clone()))
-                        .unwrap();
-                }
             }
         }
+        sender
+            .send(RenderMessage::RefereeSync(state.clone_into()))
+            .unwrap();
     }
 }
