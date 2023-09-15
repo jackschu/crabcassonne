@@ -258,6 +258,16 @@ impl eframe::App for MyApp {
             ui.horizontal(|ui| {
                 ui.add(egui::Slider::new(&mut self.zoom, 40..=160).text("zoom"));
                 ui.label("Press R to rotate");
+                if let Some(state) = &self.render_state {
+                    for player in &state.turn_order {
+                        ui.label(format!(
+                            "Player {} Score: {}",
+                            player,
+                            state.player_scores.get(player).unwrap_or(&0)
+                        ));
+                    }
+                    ui.label(format!("Current Player: {}", state.current_player));
+                }
             });
 
             let events = ui.input(|i| i.events.clone());

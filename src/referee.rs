@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt,
     sync::mpsc::{Receiver, Sender},
 };
 
@@ -68,6 +69,12 @@ impl RefereeState {
 pub enum Player {
     Black,
     White,
+}
+
+impl fmt::Display for Player {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<RenderMessage>) {
