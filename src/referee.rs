@@ -36,7 +36,7 @@ impl RefereeState {
     pub fn clone_into(&self) -> RenderState {
         let player = self.get_player();
         RenderState {
-            preview_tile: self.tilebag.peek().map(|x| x.clone()),
+            preview_tile: self.tilebag.peek().cloned(),
             board: self.board.clone(),
             turn_order: self.turn_order.clone(),
             current_player: player,
@@ -58,10 +58,10 @@ impl RefereeState {
             return false;
         }
 
-        if !self.board.is_features_match(&coord, &tile) {
+        if !self.board.is_features_match(&coord, tile) {
             return false;
         }
-        return true;
+        true
     }
 }
 
