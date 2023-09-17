@@ -109,6 +109,11 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
             InteractionMessage::Print(message) => {
                 println!("recv {}", message);
             }
+            InteractionMessage::CancelMeeple => {
+                if state.is_placing_meeple {
+                    state.progress_phase()
+                }
+            }
             InteractionMessage::Click(message) => {
                 if state.is_placing_meeple {
                     let player = state.get_player().clone();

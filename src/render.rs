@@ -24,6 +24,7 @@ pub struct ClickMessage {
 pub enum InteractionMessage {
     Print(String),
     Click(ClickMessage),
+    CancelMeeple,
 }
 
 pub struct RenderState {
@@ -75,6 +76,7 @@ impl eframe::App for MyApp {
             ui.horizontal(|ui| {
                 ui.add(egui::Slider::new(&mut self.zoom, 40..=160).text("zoom"));
                 ui.label("Press R to rotate");
+                ui.label("Press X to skip meeple placement");
                 if let Some(state) = &self.render_state {
                     for player in &state.turn_order {
                         ui.label(format!(
@@ -98,7 +100,6 @@ impl eframe::App for MyApp {
                         repeat,
                     } => {
                         if *pressed && !repeat {
-                            #[allow(clippy::single_match)] // may expand
                             match key {
                                 egui::Key::R => {
                                     if let Some(preview_tile) = self
@@ -109,6 +110,10 @@ impl eframe::App for MyApp {
                                         preview_tile.rotate_right()
                                     }
                                 }
+                                egui::Key::X => self
+                                    .output_channel
+                                    .send(InteractionMessage::CancelMeeple)
+                                    .unwrap(),
                                 _ => {}
                             }
                         }
