@@ -1,6 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::tile::{MiniTile, TileClickTarget, TileData, CARDINALS};
+use crate::{
+    referee::Player,
+    tile::{MiniTile, TileClickTarget, TileData, CARDINALS},
+};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 
@@ -77,6 +80,16 @@ impl BoardData for OverlaidBoard<'_> {
 }
 
 impl FeatureResult<'_> {
+    pub fn get_meeples(&self) -> Vec<Player> {
+        self.visited
+            .iter()
+            .filter_map(|(coord, direction)| {
+                let tile = self.board.at(coord)?;
+                tile.get_meeple_at(direction)
+            })
+            .collect()
+    }
+
     pub fn get_present_tiles(&self) -> impl Iterator<Item = &Coordinate> + '_ {
         self.visited
             .iter()
@@ -132,6 +145,9 @@ pub trait BoardData {
         while let Some((coord, direction)) = queue.pop() {
             if let Some(tile) = self.at(&coord) {
                 let directions = tile.get_exits(&direction);
+                for direction in &directions {
+                    visited.insert((coord, direction.clone()).clone());
+                }
                 let next: Vec<(Coordinate, TileClickTarget)> = directions
                     .iter()
                     .map(|direction| {
@@ -244,6 +260,7 @@ pub trait BoardData {
             completed = completed && self.at(&coord).is_some();
             out.insert((coord, TileClickTarget::Center));
         }
+
         Some(FeatureResult {
             board: Box::new(self),
             originators: HashSet::from([TileClickTarget::Center]),
@@ -253,6 +270,34 @@ pub trait BoardData {
         })
     }
 
+    fn is_legal_meeple(&self, coord: &Coordinate, target: TileClickTarget) -> Option<()>
+    where
+        Self: Sized,
+    {
+        let tile = self.at(coord)?;
+        let mini_feature = tile.at(&target);
+        match mini_feature {
+            MiniTile::City | MiniTile::Road => {
+                if target == TileClickTarget::Center {
+                    return None;
+                }
+                let feature_result = self.get_connecting_feature_results(coord, target)?;
+                if !feature_result.visited.is_empty() && feature_result.get_meeples().is_empty() {
+                    Some(())
+                } else {
+                    None
+                }
+            }
+            MiniTile::Grass | MiniTile::Junction => None,
+            MiniTile::Monastery => {
+                if tile.get_meeple_at(&target).is_some() {
+                    None
+                } else {
+                    Some(())
+                }
+            }
+        }
+    }
     fn get_legal_tiles(&self) -> HashSet<Coordinate> {
         self.tiles_present()
             .flat_map(|tile| -> HashSet<Coordinate> {

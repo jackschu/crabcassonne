@@ -10,7 +10,7 @@ use crate::{
     board::BoardData,
     board::{ConcreteBoard, Coordinate},
     render::{InteractionMessage, RenderMessage, RenderState},
-    tile::TileData,
+    tile::{TileClickTarget, TileData},
     tilebag::TileBag,
 };
 
@@ -58,6 +58,9 @@ impl RefereeState {
     }
     pub fn get_player(&self) -> Player {
         self.turn_order[self.turn_idx].clone()
+    }
+    pub fn is_legal_meeple_placement(&self, coord: Coordinate, target: &TileClickTarget) -> bool {
+        self.board.is_legal_meeple(&coord, target.clone()).is_some()
     }
     pub fn is_legal_placement(&self, coord: Coordinate, tile: &TileData) -> bool {
         if self.board.tiles_placed() == 0 {
@@ -109,11 +112,13 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
             InteractionMessage::Click(message) => {
                 if state.is_placing_meeple {
                     let player = state.get_player().clone();
-                    let maybe_tile = state.board.at_mut(&message.coord);
-                    if let Some(tile) = maybe_tile {
-                        let success = tile.place_meeple(&message.location, player);
-                        if success {
-                            state.progress_phase();
+                    if state.is_legal_meeple_placement(message.coord, &message.location) {
+                        let maybe_tile = state.board.at_mut(&message.coord);
+                        if let Some(tile) = maybe_tile {
+                            let success = tile.place_meeple(&message.location, player);
+                            if success {
+                                state.progress_phase();
+                            }
                         }
                     }
                 } else {

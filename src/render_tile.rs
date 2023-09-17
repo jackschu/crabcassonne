@@ -111,7 +111,7 @@ fn tile_ui(
         }
     }
 
-    if response.clicked() {
+    if response.clicked() && !is_placing_meeple {
         response.ctx.data_mut(|map| {
             let id = Id::new(TILE_CLICK_ID);
             if map.get_temp::<InteractionMessage>(id).is_some() {

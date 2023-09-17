@@ -134,6 +134,11 @@ impl TileData {
             && self.right() == other.right()
     }
 
+    pub fn get_meeple_at(&self, target: &TileClickTarget) -> Option<Player> {
+        self.meeple_locations
+            .get(&self.rotation.counter_rotate(target))
+            .cloned()
+    }
     pub fn get_meeple_locations(&self) -> HashMap<TileClickTarget, Player> {
         self.meeple_locations
             .iter()
