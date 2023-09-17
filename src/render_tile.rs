@@ -1,4 +1,4 @@
-use egui::{pos2, vec2, Color32, Id, Rect, Stroke};
+use egui::{epaint::CircleShape, pos2, vec2, Color32, Id, Rect, Shape, Stroke};
 
 use crate::{
     board::{Coordinate, OCTAL_DELTAS},
@@ -47,6 +47,7 @@ fn tile_ui(
         let is_preview = tile.is_none();
 
         if let Some(tile) = resolved_tile {
+            let meeple_map = tile.get_meeple_locations();
             for mini_coord in minis {
                 let mini_rect = Rect::from_center_size(
                     pos2(
@@ -63,6 +64,12 @@ fn tile_ui(
                 }
 
                 rect_paint(ui, mini_rect, color);
+
+                if let Some(target) = &target {
+                    if let Some(meeple_owner) = meeple_map.get(target) {
+                        meeple_paint(ui, mini_rect, meeple_owner.get_color());
+                    }
+                }
 
                 if let Some(click_pos) = response.interact_pointer_pos() {
                     if response.clicked() && mini_rect.contains(click_pos) {
@@ -117,19 +124,27 @@ fn tile_ui(
     response
 }
 
-fn rect_button(ui: &mut egui::Ui, rect: Rect, id: Id, color: Color32) -> egui::Response {
-    let response = ui.interact(rect, id, egui::Sense::click());
-    let visuals = ui.style().interact(&response);
-    if ui.is_rect_visible(rect) {
-        let rect = rect.expand(visuals.expansion);
-        ui.painter().rect(rect, 0.0, color, visuals.bg_stroke);
-    }
-    response
-}
-
 fn rect_paint(ui: &egui::Ui, rect: Rect, color: Color32) {
     if ui.is_rect_visible(rect) {
         ui.painter().rect(rect, 0.0, color, Stroke::NONE);
+    }
+}
+
+fn meeple_paint(ui: &egui::Ui, rect: Rect, color: Color32) {
+    if ui.is_rect_visible(rect) {
+        let l = rect.height();
+
+        let meeple_head = Shape::Circle(CircleShape {
+            center: rect.center() - vec2(0.0, l / 6.0),
+            radius: l / 4.5,
+            fill: color,
+            stroke: Stroke::NONE,
+        });
+        let body_rect = rect.shrink2(vec2(l / 3.0, l / 6.0));
+
+        let meeple_body = Shape::rect_filled(body_rect, 0.0, color);
+        ui.painter().add(meeple_head);
+        ui.painter().add(meeple_body);
     }
 }
 

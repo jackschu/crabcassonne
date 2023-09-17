@@ -1,6 +1,8 @@
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 use egui::Color32;
+
+use crate::referee::Player;
 
 #[derive(Clone, Default)]
 pub struct TileDataBuilder {
@@ -22,6 +24,8 @@ pub struct TileData {
     pub secondary_center: Option<MiniTile>,
     right: MiniTile,
     bottom: MiniTile,
+
+    meeple_locations: HashMap<TileClickTarget, Player>,
     pub rotation: Rotation,
 }
 
@@ -41,6 +45,41 @@ pub enum Rotation {
 }
 
 impl Rotation {
+    fn rotate_impl(&self, target: &TileClickTarget, is_counter: bool) -> TileClickTarget {
+        let rot_idx = match &self {
+            Rotation::None => 0,
+            Rotation::Right => 1,
+            Rotation::Flip => 2,
+            Rotation::Left => 3,
+        };
+
+        let target_idx = match target {
+            TileClickTarget::Top => 0,
+            TileClickTarget::Left => 1,
+            TileClickTarget::Bottom => 2,
+            TileClickTarget::Right => 3,
+            TileClickTarget::Center => return TileClickTarget::Center,
+        };
+
+        let arr = [
+            TileClickTarget::Top,
+            TileClickTarget::Left,
+            TileClickTarget::Bottom,
+            TileClickTarget::Right,
+        ];
+
+        if is_counter {
+            return arr[(target_idx - rot_idx) % 4].clone();
+        } else {
+            return arr[(target_idx + rot_idx) % 4].clone();
+        }
+    }
+    pub fn rotate(&self, target: &TileClickTarget) -> TileClickTarget {
+        self.rotate_impl(target, false)
+    }
+    pub fn counter_rotate(&self, target: &TileClickTarget) -> TileClickTarget {
+        self.rotate_impl(target, true)
+    }
     pub fn next_right(&self) -> Rotation {
         match &self {
             Rotation::None => Rotation::Right,
@@ -94,38 +133,26 @@ impl TileData {
             && self.left() == other.left()
             && self.right() == other.right()
     }
+
+    pub fn get_meeple_locations(&self) -> HashMap<TileClickTarget, Player> {
+        self.meeple_locations
+            .iter()
+            .map(|(target, player)| (self.rotation.counter_rotate(target), player.clone()))
+            .collect()
+    }
+
     pub fn top(&self) -> &MiniTile {
-        match self.rotation {
-            Rotation::None => &self.top,
-            Rotation::Left => &self.right,
-            Rotation::Right => &self.left,
-            Rotation::Flip => &self.bottom,
-        }
+        self.at(&TileClickTarget::Top)
     }
     pub fn bottom(&self) -> &MiniTile {
-        match self.rotation {
-            Rotation::None => &self.bottom,
-            Rotation::Left => &self.left,
-            Rotation::Right => &self.right,
-            Rotation::Flip => &self.top,
-        }
+        self.at(&TileClickTarget::Bottom)
     }
 
     pub fn right(&self) -> &MiniTile {
-        match self.rotation {
-            Rotation::None => &self.right,
-            Rotation::Left => &self.bottom,
-            Rotation::Right => &self.top,
-            Rotation::Flip => &self.left,
-        }
+        self.at(&TileClickTarget::Right)
     }
     pub fn left(&self) -> &MiniTile {
-        match self.rotation {
-            Rotation::None => &self.left,
-            Rotation::Left => &self.top,
-            Rotation::Right => &self.bottom,
-            Rotation::Flip => &self.right,
-        }
+        self.at(&TileClickTarget::Left)
     }
     pub fn rotate_right(&mut self) {
         self.rotation = self.rotation.next_right();
@@ -146,18 +173,20 @@ impl From<TileDataBuilder> for TileData {
             right: builder.right,
             bottom: builder.bottom,
             rotation: Rotation::None,
+            meeple_locations: HashMap::from([]),
         }
     }
 }
 
 impl TileData {
     pub fn at(&self, target: &TileClickTarget) -> &MiniTile {
-        match target {
-            TileClickTarget::Top => self.top(),
-            TileClickTarget::Left => self.left(),
+        let rotated_target = self.rotation.rotate(target);
+        match rotated_target {
+            TileClickTarget::Top => &self.top,
+            TileClickTarget::Left => &self.left,
             TileClickTarget::Center => &self.center,
-            TileClickTarget::Right => self.right(),
-            TileClickTarget::Bottom => self.bottom(),
+            TileClickTarget::Right => &self.right,
+            TileClickTarget::Bottom => &self.bottom,
         }
     }
 }

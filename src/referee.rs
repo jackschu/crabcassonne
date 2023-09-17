@@ -4,6 +4,8 @@ use std::{
     sync::mpsc::{Receiver, Sender},
 };
 
+use egui::Color32;
+
 use crate::{
     board::BoardData,
     board::{ConcreteBoard, Coordinate},
@@ -69,6 +71,15 @@ impl RefereeState {
 pub enum Player {
     Black,
     White,
+}
+
+impl Player {
+    pub fn get_color(&self) -> Color32 {
+        match self {
+            Self::Black => Color32::BLACK,
+            Self::White => Color32::WHITE,
+        }
+    }
 }
 
 impl fmt::Display for Player {
