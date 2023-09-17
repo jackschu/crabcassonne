@@ -1,4 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    cmp::max,
+    cmp::min,
+    collections::{HashMap, HashSet},
+};
 
 use crate::{
     referee::Player,
@@ -6,8 +10,6 @@ use crate::{
 };
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-
-pub const BOARD_DIM: usize = 72;
 
 pub type Coordinate = (i8, i8);
 
@@ -348,6 +350,23 @@ impl BoardData for ConcreteBoard {
 }
 
 impl ConcreteBoard {
+    pub fn boundaries(&self) -> ((i8, i8), (i8, i8)) {
+        let last = self.data.iter().last();
+        if let Some(last) = last {
+            let (mut min_row, mut min_col) = last.0;
+            let (mut max_row, mut max_col) = (min_row, min_col);
+            for (row, col) in self.data.keys() {
+                min_row = min(min_row, *row);
+                min_col = min(min_col, *col);
+                max_row = max(max_row, *row);
+                max_col = max(max_col, *col);
+            }
+
+            ((min_row, max_row), (min_col, max_col))
+        } else {
+            ((1, -1), (1, -1))
+        }
+    }
     pub fn at_mut(&mut self, coord: &Coordinate) -> Option<&mut TileData> {
         self.data.get_mut(coord)
     }

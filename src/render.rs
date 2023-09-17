@@ -7,7 +7,7 @@ use eframe::egui;
 use egui::{vec2, Id};
 
 use crate::{
-    board::{BoardData, ConcreteBoard, Coordinate, BOARD_DIM},
+    board::{BoardData, ConcreteBoard, Coordinate},
     referee::Player,
     render_tile,
     tile::{Rotation, TileClickTarget, TileData},
@@ -122,20 +122,19 @@ impl eframe::App for MyApp {
                 }
             }
 
-            let grid_rows = BOARD_DIM;
-            let grid_cols = BOARD_DIM;
             let grid = egui::Grid::new("some_unique_id").spacing(vec2(10.0, 10.0));
 
             // grid = grid.min_row_height(size);
             // grid = grid.min_col_width(size);
             // grid = grid.max_col_width(size);
             if let Some(state) = &self.render_state {
+                let ((min_row, max_row), (min_col, max_col)) = state.board.boundaries();
                 egui::ScrollArea::both()
                     .drag_to_scroll(true)
                     .show(ui, |ui| {
                         grid.show(ui, |ui| {
-                            for r in 0..grid_rows {
-                                for c in 0..grid_cols {
+                            for r in (min_row - 1)..(max_row + 1 + 1) {
+                                for c in (min_col - 1)..(max_col + 1 + 1) {
                                     let coord = (r as i8, c as i8);
                                     let response = ui
                                         .push_id(coord, |ui| {
