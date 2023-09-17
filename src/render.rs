@@ -20,6 +20,7 @@ pub struct ClickMessage {
     pub location: TileClickTarget,
 }
 
+#[derive(Clone)]
 pub enum InteractionMessage {
     Print(String),
     Click(ClickMessage),
@@ -44,7 +45,7 @@ pub struct MyApp {
     pub input_channel: Receiver<RenderMessage>,
 }
 
-pub const SUBTILE_ID: &str = "subtile";
+pub const TILE_CLICK_ID: &str = "subtile";
 
 impl MyApp {
     pub fn create(
@@ -141,14 +142,13 @@ impl eframe::App for MyApp {
                                         })
                                         .inner;
                                     response.ctx.data_mut(|map| {
-                                        let subtile_id = Id::new(SUBTILE_ID);
-                                        let maybe_val = map.get_temp::<ClickMessage>(subtile_id);
+                                        let subtile_id = Id::new(TILE_CLICK_ID);
+                                        let maybe_val =
+                                            map.get_temp::<InteractionMessage>(subtile_id);
                                         if let Some(val) = maybe_val {
-                                            self.output_channel
-                                                .send(InteractionMessage::Click(val))
-                                                .unwrap();
+                                            self.output_channel.send(val).unwrap();
                                         }
-                                        map.remove::<ClickMessage>(subtile_id);
+                                        map.remove::<InteractionMessage>(subtile_id);
                                     })
                                 }
                                 ui.end_row();

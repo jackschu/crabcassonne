@@ -13,8 +13,8 @@ pub struct ConcreteBoard {
     data: HashMap<Coordinate, TileData>,
 }
 
-static DELTAS: [Coordinate; 4] = [(0, 1), (1, 0), (-1, 0), (0, -1)];
-static OCTAL_DELTAS: [Coordinate; 8] = [
+pub static DELTAS: [Coordinate; 4] = [(0, 1), (1, 0), (-1, 0), (0, -1)];
+pub static OCTAL_DELTAS: [Coordinate; 8] = [
     (0, 1),
     (1, 0),
     (-1, 0),

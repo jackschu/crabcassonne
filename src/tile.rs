@@ -171,6 +171,19 @@ pub enum TileClickTarget {
     Bottom,
 }
 
+impl TileClickTarget {
+    pub fn from_octal(coord: (i8, i8)) -> Option<Self> {
+        match coord {
+            (0, -1) => Some(Self::Top),
+            (-1, 0) => Some(Self::Left),
+            (0, 0) => Some(Self::Center),
+            (1, 0) => Some(Self::Right),
+            (0, 1) => Some(Self::Bottom),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum MiniTile {
     #[default]
@@ -200,7 +213,16 @@ impl MiniTile {
 mod tests {
     use std::assert_eq;
 
+    use crate::board::DELTAS;
+
     use super::*;
+
+    #[test]
+    fn from_octal_works() {
+        for maybe_target in DELTAS.map(|o| TileClickTarget::from_octal(o)) {
+            assert!(maybe_target.is_some());
+        }
+    }
 
     #[test]
     fn tile_rotation() {
