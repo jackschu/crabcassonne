@@ -30,6 +30,7 @@ pub struct RenderState {
     pub preview_tile: Option<TileData>,
     pub board: ConcreteBoard,
     pub turn_order: Vec<Player>,
+    pub is_placing_meeple: bool,
     pub current_player: Player,
     pub player_scores: HashMap<Player, u32>,
 }
@@ -137,7 +138,12 @@ impl eframe::App for MyApp {
                                                 self.zoom as f32,
                                                 state.board.at(&coord),
                                                 coord,
-                                                &state.preview_tile,
+                                                if state.is_placing_meeple {
+                                                    &None
+                                                } else {
+                                                    &state.preview_tile
+                                                },
+                                                state.is_placing_meeple,
                                             ))
                                         })
                                         .inner;

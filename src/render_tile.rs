@@ -1,4 +1,7 @@
-use egui::{epaint::CircleShape, pos2, vec2, Color32, Id, Rect, Shape, Stroke};
+use egui::{
+    epaint::{CircleShape, RectShape},
+    pos2, vec2, Color32, Id, Rect, Shape, Stroke,
+};
 
 use crate::{
     board::{Coordinate, OCTAL_DELTAS},
@@ -12,6 +15,7 @@ fn tile_ui(
     tile: Option<&TileData>,
     coord: Coordinate,
     preview_tile: &Option<TileData>,
+    is_placing_meeple: bool,
 ) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(vec2(size, size), egui::Sense::click());
 
@@ -72,18 +76,22 @@ fn tile_ui(
                 }
 
                 if let Some(click_pos) = response.interact_pointer_pos() {
-                    if response.clicked() && mini_rect.contains(click_pos) {
-                        println!("Meeple place? {:?} {:?}", target, coord);
-                        response.ctx.data_mut(|map| {
-                            let id = Id::new(TILE_CLICK_ID);
-                            map.insert_temp::<InteractionMessage>(
-                                id,
-                                InteractionMessage::Print(format!(
-                                    "Meeple place? {:?} {:?}",
-                                    target, coord
-                                )),
-                            );
-                        });
+                    if is_placing_meeple && response.clicked() && mini_rect.contains(click_pos) {
+                        if let Some(target) = target {
+                            response.ctx.data_mut(|map| {
+                                let id = Id::new(TILE_CLICK_ID);
+                                println!("Meeple place? {:?} {:?}", target, coord);
+
+                                map.insert_temp::<InteractionMessage>(
+                                    id,
+                                    InteractionMessage::Click(ClickMessage {
+                                        location: target,
+                                        rotation: Rotation::None,
+                                        coord,
+                                    }),
+                                );
+                            });
+                        }
                     }
                 }
             }
@@ -106,6 +114,9 @@ fn tile_ui(
     if response.clicked() {
         response.ctx.data_mut(|map| {
             let id = Id::new(TILE_CLICK_ID);
+            if map.get_temp::<InteractionMessage>(id).is_some() {
+                return;
+            }
             map.insert_temp::<InteractionMessage>(
                 id,
                 InteractionMessage::Click(ClickMessage {
@@ -133,18 +144,24 @@ fn rect_paint(ui: &egui::Ui, rect: Rect, color: Color32) {
 fn meeple_paint(ui: &egui::Ui, rect: Rect, color: Color32) {
     if ui.is_rect_visible(rect) {
         let l = rect.height();
+        let outline = Stroke::new(1.0, Color32::BLACK);
 
         let meeple_head = Shape::Circle(CircleShape {
             center: rect.center() - vec2(0.0, l / 6.0),
             radius: l / 4.5,
             fill: color,
-            stroke: Stroke::NONE,
+            stroke: outline,
         });
         let body_rect = rect.shrink2(vec2(l / 3.0, l / 6.0));
 
-        let meeple_body = Shape::rect_filled(body_rect, 0.0, color);
-        ui.painter().add(meeple_head);
+        let meeple_body = Shape::Rect(RectShape {
+            rect: body_rect,
+            rounding: 0.0.into(),
+            stroke: outline,
+            fill: color,
+        });
         ui.painter().add(meeple_body);
+        ui.painter().add(meeple_head);
     }
 }
 
@@ -153,6 +170,7 @@ pub fn tile<'a>(
     tile: Option<&'a TileData>,
     coord: Coordinate,
     preview_tile: &'a Option<TileData>,
+    is_placing_meeple: bool,
 ) -> impl egui::Widget + 'a {
-    move |ui: &mut egui::Ui| tile_ui(ui, size, tile, coord, preview_tile)
+    move |ui: &mut egui::Ui| tile_ui(ui, size, tile, coord, preview_tile, is_placing_meeple)
 }

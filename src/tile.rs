@@ -179,6 +179,15 @@ impl From<TileDataBuilder> for TileData {
 }
 
 impl TileData {
+    pub fn place_meeple(&mut self, target: &TileClickTarget, player: Player) -> bool {
+        let resolved_target = self.rotation.rotate(target);
+        if self.meeple_locations.get(&resolved_target).is_some() {
+            return false;
+        }
+        self.meeple_locations
+            .insert(resolved_target.clone(), player);
+        return true;
+    }
     pub fn at(&self, target: &TileClickTarget) -> &MiniTile {
         let rotated_target = self.rotation.rotate(target);
         match rotated_target {
