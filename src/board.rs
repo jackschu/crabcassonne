@@ -82,6 +82,24 @@ impl BoardData for OverlaidBoard<'_> {
 }
 
 impl FeatureResult<'_> {
+    pub fn get_scoring_players(&self) -> HashSet<Player> {
+        let mut counts: HashMap<Player, u8> = HashMap::from([]);
+        let mut max_count = 0;
+
+        for player in self.get_meeples() {
+            let cur = counts.get(&player).unwrap_or(&0).clone();
+            counts.insert(player, cur + 1);
+            max_count = max(max_count, cur + 1);
+        }
+        let mut out: HashSet<Player> = HashSet::from([]);
+        for (player, count) in counts {
+            if count != max_count {
+                continue;
+            }
+            out.insert(player);
+        }
+        return out;
+    }
     pub fn get_meeples(&self) -> Vec<Player> {
         self.visited
             .iter()
@@ -99,11 +117,12 @@ impl FeatureResult<'_> {
             .unique()
             .filter(|coord| self.board.at(coord).is_some())
     }
-    pub fn get_score(&self, is_endgame: bool) -> u8 {
+    pub fn get_score(&self, is_endgame: bool) -> (HashSet<Player>, u8) {
         if !is_endgame && !self.completed {
-            return 0;
+            return (HashSet::from([]), 0);
         }
-        match self.feature {
+        let players = self.get_scoring_players();
+        let score = match self.feature {
             MiniTile::Road | MiniTile::City => {
                 let is_city = self.feature == MiniTile::City;
                 let multiplier: u8 = if !is_endgame && is_city { 2 } else { 1 };
@@ -115,11 +134,13 @@ impl FeatureResult<'_> {
                         .filter(|tile| tile.has_emblem)
                         .count() as u8;
                 }
+
                 unit_count * multiplier
             }
             MiniTile::Monastery => self.get_present_tiles().count() as u8,
             _ => 0,
-        }
+        };
+        (players, score)
     }
 }
 
@@ -183,7 +204,11 @@ pub trait BoardData {
         })
     }
 
-    fn get_completion_points(&self, coord: &Coordinate, tile: &TileData) -> u8
+    fn get_completion_points(
+        &self,
+        coord: &Coordinate,
+        tile: &TileData,
+    ) -> HashMap<Option<Player>, u8>
     where
         Self: Sized,
     {
@@ -192,7 +217,6 @@ pub trait BoardData {
             board: Box::new(self),
             overlay,
         };
-
         let mut data: Vec<FeatureResult> = vec![];
         // prevent double reporting single tile
         let mut seen: HashSet<TileClickTarget> = HashSet::from([]);
@@ -212,7 +236,7 @@ pub trait BoardData {
                 data.push(feature_result);
             }
         }
-        let mut out: u8 = 0;
+        let mut out: HashMap<Option<Player>, u8> = HashMap::from([]);
 
         let mut monestary_checks: Vec<(&TileData, Coordinate)> = OCTAL_DELTAS
             .iter()
@@ -233,9 +257,18 @@ pub trait BoardData {
         }
 
         for datum in data {
-            let score = datum.get_score(false);
-            println!("score {} feature {:?}", score, datum.feature);
-            out += score;
+            let (players, score) = datum.get_score(false);
+            if players.is_empty() {
+                let cur = out.get(&None).unwrap_or(&0);
+                out.insert(None, cur + score);
+            }
+            for player in players {
+                if let Some(cur) = out.get_mut(&Some(player.clone())) {
+                    *cur += score;
+                } else {
+                    out.insert(Some(player), score);
+                }
+            }
         }
 
         out
@@ -478,17 +511,21 @@ mod tests {
         );
         assert_eq!(
             12,
-            board.get_completion_points(
-                &(30, 32),
-                &TileDataBuilder {
-                    has_emblem: true,
-                    top: MiniTile::City,
-                    left: MiniTile::City,
-                    center: MiniTile::City,
-                    ..Default::default()
-                }
-                .into()
-            )
+            board
+                .get_completion_points(
+                    &(30, 32),
+                    &TileDataBuilder {
+                        has_emblem: true,
+                        top: MiniTile::City,
+                        left: MiniTile::City,
+                        center: MiniTile::City,
+                        ..Default::default()
+                    }
+                    .into()
+                )
+                .get(&None)
+                .unwrap_or(&0)
+                .clone()
         );
     }
 
@@ -518,7 +555,76 @@ mod tests {
 
         board.set((29, 30), tile.clone());
 
-        assert_eq!(board.get_completion_points(&(31, 30), &tile), 9);
+        assert_eq!(
+            board
+                .get_completion_points(&(31, 30), &tile)
+                .get(&None)
+                .unwrap_or(&0)
+                .clone(),
+            9
+        );
+    }
+
+    #[test]
+    fn simple_score_no_rot() {
+        let mut board = ConcreteBoard::default();
+
+        let tile_city: TileData = TileDataBuilder {
+            top: MiniTile::City,
+            ..Default::default()
+        }
+        .into();
+        board.set((1, 0), tile_city);
+        let player = Player::White;
+
+        let maybe_tile = board.at_mut(&(1, 0));
+        if let Some(tile) = maybe_tile {
+            let success = tile.place_meeple(&TileClickTarget::Top, player.clone());
+            assert!(success);
+        }
+
+        let tile_city: TileData = TileDataBuilder {
+            bottom: MiniTile::City,
+            ..Default::default()
+        }
+        .into();
+        board.set((0, 0), tile_city.clone());
+
+        let tile = board.at(&(0, 0)).unwrap();
+        let completion = board.get_completion_points(&(0, 0), tile);
+        let points = completion.get(&Some(player)).unwrap_or(&0).clone();
+        assert_eq!(points, 4);
+    }
+
+    #[test]
+    fn simple_score() {
+        let mut board = ConcreteBoard::default();
+
+        let tile_city: TileData = TileDataBuilder {
+            top: MiniTile::City,
+            ..Default::default()
+        }
+        .into();
+        board.set((1, 0), tile_city);
+
+        let mut tile_city: TileData = TileDataBuilder {
+            right: MiniTile::City,
+            ..Default::default()
+        }
+        .into();
+        tile_city.rotate_right();
+        board.set((0, 0), tile_city.clone());
+        let player = Player::White;
+        let maybe_tile = board.at_mut(&(0, 0));
+        if let Some(tile) = maybe_tile {
+            let success = tile.place_meeple(&TileClickTarget::Bottom, player.clone());
+            assert!(success);
+        }
+
+        let tile = board.at(&(0, 0)).unwrap();
+        let completion = board.get_completion_points(&(0, 0), tile);
+        let points = completion.get(&Some(player)).unwrap_or(&0).clone();
+        assert_eq!(points, 4);
     }
 
     #[test]
@@ -542,7 +648,14 @@ mod tests {
         }
 
         assert!(board.is_features_match(&center, &tile_city));
-        assert_eq!(board.get_completion_points(&center, &tile_city), 16);
+        assert_eq!(
+            board
+                .get_completion_points(&center, &tile_city)
+                .get(&None)
+                .unwrap_or(&0)
+                .clone(),
+            16
+        );
         let mut bag = TileBag::default();
         for _ in 0..100_000 {
             if let Some(tile) = bag.pull() {

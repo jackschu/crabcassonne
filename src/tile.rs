@@ -25,7 +25,7 @@ pub struct TileData {
     right: MiniTile,
     bottom: MiniTile,
 
-    meeple_locations: HashMap<TileClickTarget, Player>,
+    pub meeple_locations: HashMap<TileClickTarget, Player>,
     pub rotation: Rotation,
 }
 
@@ -46,14 +46,14 @@ pub enum Rotation {
 
 impl Rotation {
     fn rotate_impl(&self, target: &TileClickTarget, is_counter: bool) -> TileClickTarget {
-        let rot_idx = match &self {
+        let rot_idx: isize = match &self {
             Rotation::None => 0,
             Rotation::Right => 1,
             Rotation::Flip => 2,
             Rotation::Left => 3,
         };
 
-        let target_idx = match target {
+        let target_idx: isize = match target {
             TileClickTarget::Top => 0,
             TileClickTarget::Left => 1,
             TileClickTarget::Bottom => 2,
@@ -69,9 +69,11 @@ impl Rotation {
         ];
 
         if is_counter {
-            return arr[(target_idx - rot_idx) % 4].clone();
+            let idx: usize = ((target_idx - rot_idx + 4) % 4).try_into().unwrap();
+            return arr[idx].clone();
         } else {
-            return arr[(target_idx + rot_idx) % 4].clone();
+            let idx: usize = ((target_idx + rot_idx) % 4).try_into().unwrap();
+            return arr[idx].clone();
         }
     }
     pub fn rotate(&self, target: &TileClickTarget) -> TileClickTarget {
@@ -136,7 +138,7 @@ impl TileData {
 
     pub fn get_meeple_at(&self, target: &TileClickTarget) -> Option<Player> {
         self.meeple_locations
-            .get(&self.rotation.counter_rotate(target))
+            .get(&self.rotation.rotate(target))
             .cloned()
     }
     pub fn get_meeple_locations(&self) -> HashMap<TileClickTarget, Player> {

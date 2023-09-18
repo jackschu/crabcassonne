@@ -20,7 +20,8 @@ pub struct RefereeState {
     turn_order: Vec<Player>,
     turn_idx: usize,
     pub is_placing_meeple: bool,
-    player_scores: HashMap<Player, u32>,
+    pub player_scores: HashMap<Player, u32>,
+    placing_tile: Option<Coordinate>,
 }
 
 impl Default for RefereeState {
@@ -32,6 +33,7 @@ impl Default for RefereeState {
             turn_idx: 0,
             is_placing_meeple: false,
             player_scores: HashMap::from([(Player::White, 0), (Player::Black, 0)]),
+            placing_tile: None,
         }
     }
 }
@@ -48,12 +50,33 @@ impl RefereeState {
             player_scores: self.player_scores.clone(),
         }
     }
-    pub fn progress_phase(&mut self) {
+    fn score_placement(&mut self) {
+        if let Some(coord) = &self.placing_tile {
+            if let Some(tile) = self.board.at(coord) {
+                let points = self.board.get_completion_points(coord, tile);
+                for (maybe_player, addition) in points {
+                    if let Some(player) = maybe_player {
+                        if let Some(value) = self.player_scores.get_mut(&player) {
+                            *value += addition as u32;
+                        } else {
+                            self.player_scores.insert(player, addition as u32);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn progress_phase(&mut self, placing_tile: Option<Coordinate>) {
         if self.is_placing_meeple {
             self.turn_idx = (self.turn_idx + 1) % self.turn_order.len();
+            self.score_placement();
+
             self.is_placing_meeple = false;
+            self.placing_tile = None;
         } else {
             self.is_placing_meeple = true;
+            self.placing_tile = placing_tile;
         }
     }
     pub fn get_player(&self) -> Player {
@@ -111,7 +134,7 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
             }
             InteractionMessage::CancelMeeple => {
                 if state.is_placing_meeple {
-                    state.progress_phase()
+                    state.progress_phase(None)
                 }
             }
             InteractionMessage::Click(message) => {
@@ -122,7 +145,7 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
                         if let Some(tile) = maybe_tile {
                             let success = tile.place_meeple(&message.location, player);
                             if success {
-                                state.progress_phase();
+                                state.progress_phase(None);
                             }
                         }
                     }
@@ -134,10 +157,9 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
                         next.rotation = message.rotation.clone();
                         if state.is_legal_placement(message.coord, &next) {
                             state.tilebag.pull();
-                            let points = state.board.get_completion_points(&message.coord, &next);
-                            println!("scored points {}", points);
-                            state.board.set(message.coord, next);
-                            state.progress_phase();
+
+                            state.board.set(message.coord, next.clone());
+                            state.progress_phase(Some(message.coord));
                         }
                     } else {
                         println!("out of tiles");

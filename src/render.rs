@@ -124,9 +124,6 @@ impl eframe::App for MyApp {
 
             let grid = egui::Grid::new("some_unique_id").spacing(vec2(10.0, 10.0));
 
-            // grid = grid.min_row_height(size);
-            // grid = grid.min_col_width(size);
-            // grid = grid.max_col_width(size);
             if let Some(state) = &self.render_state {
                 let ((min_row, max_row), (min_col, max_col)) = state.board.boundaries();
                 egui::ScrollArea::both()
