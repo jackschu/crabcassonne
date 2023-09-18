@@ -70,10 +70,10 @@ impl Rotation {
 
         if is_counter {
             let idx: usize = ((target_idx - rot_idx + 4) % 4).try_into().unwrap();
-            return arr[idx].clone();
+            arr[idx].clone()
         } else {
             let idx: usize = ((target_idx + rot_idx) % 4).try_into().unwrap();
-            return arr[idx].clone();
+            arr[idx].clone()
         }
     }
     pub fn rotate(&self, target: &TileClickTarget) -> TileClickTarget {
@@ -192,8 +192,8 @@ impl TileData {
             return false;
         }
         self.meeple_locations
-            .insert(resolved_target.clone(), player);
-        return true;
+            .insert(resolved_target, player);
+        true
     }
     pub fn at(&self, target: &TileClickTarget) -> &MiniTile {
         let rotated_target = self.rotation.rotate(target);
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn from_octal_works() {
-        for maybe_target in DELTAS.map(|o| TileClickTarget::from_octal(o)) {
+        for maybe_target in DELTAS.map(TileClickTarget::from_octal) {
             assert!(maybe_target.is_some());
         }
     }

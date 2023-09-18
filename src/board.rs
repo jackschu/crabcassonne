@@ -87,7 +87,7 @@ impl FeatureResult<'_> {
         let mut max_count = 0;
 
         for player in self.get_meeples() {
-            let cur = counts.get(&player).unwrap_or(&0).clone();
+            let cur = *counts.get(&player).unwrap_or(&0);
             counts.insert(player, cur + 1);
             max_count = max(max_count, cur + 1);
         }
@@ -98,7 +98,7 @@ impl FeatureResult<'_> {
             }
             out.insert(player);
         }
-        return out;
+        out
     }
     pub fn get_meeples(&self) -> Vec<Player> {
         self.visited
@@ -588,11 +588,11 @@ mod tests {
             ..Default::default()
         }
         .into();
-        board.set((0, 0), tile_city.clone());
+        board.set((0, 0), tile_city);
 
         let tile = board.at(&(0, 0)).unwrap();
         let completion = board.get_completion_points(&(0, 0), tile);
-        let points = completion.get(&Some(player)).unwrap_or(&0).clone();
+        let points = *completion.get(&Some(player)).unwrap_or(&0);
         assert_eq!(points, 4);
     }
 
@@ -623,7 +623,7 @@ mod tests {
 
         let tile = board.at(&(0, 0)).unwrap();
         let completion = board.get_completion_points(&(0, 0), tile);
-        let points = completion.get(&Some(player)).unwrap_or(&0).clone();
+        let points = *completion.get(&Some(player)).unwrap_or(&0);
         assert_eq!(points, 4);
     }
 

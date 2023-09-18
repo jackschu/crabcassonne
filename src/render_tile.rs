@@ -29,10 +29,10 @@ fn tile_ui(
             return Color32::LIGHT_BLUE; // FIXME need to dual color here
         }
         if let Some(location) = location {
-            let tile_type = tile.at(&location);
-            return tile_type.get_color();
+            let tile_type = tile.at(location);
+            tile_type.get_color()
         } else {
-            return MiniTile::get_color(&MiniTile::Grass);
+            MiniTile::get_color(&MiniTile::Grass)
         }
     };
 
@@ -73,20 +73,18 @@ fn tile_ui(
                     if let Some(meeple_owner) = meeple_map.get(&target) {
                         meeple_paint(ui, mini_rect, meeple_owner.get_color());
                     } else if let Some(click_pos) = response.interact_pointer_pos() {
-                        if is_placing_meeple && mini_rect.contains(click_pos) {
-                            if response.clicked() {
-                                response.ctx.data_mut(|map| {
-                                    let id = Id::new(TILE_CLICK_ID);
-                                    map.insert_temp::<InteractionMessage>(
-                                        id,
-                                        InteractionMessage::Click(ClickMessage {
-                                            location: target,
-                                            rotation: Rotation::None,
-                                            coord,
-                                        }),
-                                    );
-                                });
-                            }
+                        if is_placing_meeple && mini_rect.contains(click_pos) && response.clicked() {
+                            response.ctx.data_mut(|map| {
+                                let id = Id::new(TILE_CLICK_ID);
+                                map.insert_temp::<InteractionMessage>(
+                                    id,
+                                    InteractionMessage::Click(ClickMessage {
+                                        location: target,
+                                        rotation: Rotation::None,
+                                        coord,
+                                    }),
+                                );
+                            });
                         }
                     } else if let Some(hover_pos) = response.hover_pos() {
                         if is_placing_meeple && mini_rect.contains(hover_pos) {

@@ -132,7 +132,7 @@ impl eframe::App for MyApp {
                         grid.show(ui, |ui| {
                             for r in (min_row - 1)..(max_row + 1 + 1) {
                                 for c in (min_col - 1)..(max_col + 1 + 1) {
-                                    let coord = (r as i8, c as i8);
+                                    let coord = (r, c);
                                     let response = ui
                                         .push_id(coord, |ui| {
                                             ui.add(render_tile::tile(
