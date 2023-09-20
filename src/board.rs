@@ -269,18 +269,18 @@ pub trait BoardData {
             }
         }
 
-        let mut monestary_checks: Vec<(&TileData, Coordinate)> = OCTAL_DELTAS
+        let mut monastery_checks: Vec<(&TileData, Coordinate)> = OCTAL_DELTAS
             .iter()
             .filter_map(|delta| {
                 let coord = (delta.0 + coord.0, delta.1 + coord.1);
                 Some((board.at(&coord)?, coord))
             })
             .collect();
-        monestary_checks.push((tile, *coord));
-        for (derived_tile, derived_coord) in monestary_checks {
+        monastery_checks.push((tile, *coord));
+        for (derived_tile, derived_coord) in monastery_checks {
             if derived_tile.center_matches(&MiniTile::Monastery) {
                 let maybe_result =
-                    board.get_monestary_feature_result(&derived_coord, &TileClickTarget::Center);
+                    board.get_monastery_feature_result(&derived_coord, &TileClickTarget::Center);
                 if let Some(feature_result) = maybe_result {
                     data.push(feature_result);
                 }
@@ -325,7 +325,7 @@ pub trait BoardData {
         self.get_points_from_score_data(&scores)
     }
 
-    fn get_monestary_feature_result(
+    fn get_monastery_feature_result(
         &self,
         initial_coord: &Coordinate,
         direction: &TileClickTarget,
@@ -602,7 +602,7 @@ mod tests {
     }
 
     #[test]
-    fn complete_monestary() {
+    fn complete_monastery() {
         let mut board = ConcreteBoard::default();
 
         let mut tile_monastery: TileData = TileDataBuilder {
