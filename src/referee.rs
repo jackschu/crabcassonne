@@ -148,7 +148,7 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
             InteractionMessage::Click(message) => {
                 if state.is_placing_meeple {
                     let player = state.get_player().clone();
-                    let meeples_remaining = state.player_meeples.get(&player).unwrap_or(&0).clone();
+                    let meeples_remaining = *state.player_meeples.get(&player).unwrap_or(&0);
                     if meeples_remaining > 0
                         && state.is_legal_meeple_placement(message.coord, &message.location)
                     {

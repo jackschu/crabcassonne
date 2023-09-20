@@ -579,7 +579,7 @@ mod tests {
 
         let maybe_tile = board.at_mut(&(1, 0));
         if let Some(tile) = maybe_tile {
-            let success = tile.place_meeple(&TileClickTarget::Top, player.clone());
+            let success = tile.place_meeple(&TileClickTarget::Top, &player);
             assert!(success);
         }
 
@@ -617,7 +617,7 @@ mod tests {
         let player = Player::White;
         let maybe_tile = board.at_mut(&(0, 0));
         if let Some(tile) = maybe_tile {
-            let success = tile.place_meeple(&TileClickTarget::Bottom, player.clone());
+            let success = tile.place_meeple(&TileClickTarget::Bottom, &player);
             assert!(success);
         }
 
