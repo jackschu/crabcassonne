@@ -33,6 +33,7 @@ pub struct RenderState {
     pub turn_order: Vec<Player>,
     pub is_placing_meeple: bool,
     pub current_player: Player,
+    pub player_meeples: HashMap<Player, u8>,
     pub player_scores: HashMap<Player, u32>,
 }
 
@@ -80,9 +81,10 @@ impl eframe::App for MyApp {
                 if let Some(state) = &self.render_state {
                     for player in &state.turn_order {
                         ui.label(format!(
-                            "Player {} Score: {}",
+                            "Player {} Score: {} Meeples: {}",
                             player,
-                            state.player_scores.get(player).unwrap_or(&0)
+                            state.player_scores.get(player).unwrap_or(&0),
+                            state.player_meeples.get(player).unwrap_or(&0)
                         ));
                     }
                     ui.label(format!("Current Player: {}", state.current_player));
