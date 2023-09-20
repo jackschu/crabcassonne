@@ -186,6 +186,11 @@ impl From<TileDataBuilder> for TileData {
 }
 
 impl TileData {
+    pub fn clear_meeple(&mut self, target: &TileClickTarget) -> Option<Player> {
+        let resolved_target = self.rotation.rotate(target);
+        self.meeple_locations.remove(&resolved_target)
+    }
+
     pub fn place_meeple(&mut self, target: &TileClickTarget, player: &Player) -> bool {
         let resolved_target = self.rotation.rotate(target);
         if self.meeple_locations.get(&resolved_target).is_some() {

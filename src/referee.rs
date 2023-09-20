@@ -61,13 +61,26 @@ impl RefereeState {
     fn score_placement(&mut self) {
         if let Some(coord) = &self.placing_tile {
             if let Some(tile) = self.board.at(coord) {
-                let points = self.board.get_completion_points(coord, tile);
+                let score_data = self.board.get_feature_score_data(coord, tile);
+                let points = self.board.get_points_from_score_data(&score_data);
                 for (maybe_player, addition) in points {
                     if let Some(player) = maybe_player {
                         if let Some(value) = self.player_scores.get_mut(&player) {
                             *value += addition as u32;
                         } else {
                             self.player_scores.insert(player, addition as u32);
+                        }
+                    }
+                }
+                for score in score_data {
+                    if !score.completed {
+                        continue;
+                    }
+                    let visited = score.removal_candidate;
+                    let removed = self.board.remove_meeples(visited);
+                    for (player, count) in removed {
+                        if let Some(stored_count) = self.player_meeples.get_mut(&player) {
+                            *stored_count += count;
                         }
                     }
                 }

@@ -49,8 +49,17 @@ static COUPLINGS: [(TileClickTarget, TileClickTarget); 4] = [
 static COUPLINGS_MAP: Lazy<HashMap<TileClickTarget, TileClickTarget>> =
     Lazy::new(|| HashMap::from(COUPLINGS.clone()));
 
+#[derive(Clone)]
+pub struct ScoringData {
+    pub scoring_players: HashSet<Player>,
+    pub points: u8,
+    pub completed: bool,
+    pub removal_candidate: HashSet<(Coordinate, TileClickTarget)>,
+}
+
 pub struct FeatureResult<'a> {
     pub originators: HashSet<TileClickTarget>,
+    pub originator_coord: Coordinate,
     pub completed: bool,
     pub feature: MiniTile,
     pub visited: HashSet<(Coordinate, TileClickTarget)>,
@@ -100,8 +109,18 @@ impl FeatureResult<'_> {
         }
         out
     }
+    pub fn as_scoring_data(&self, is_endgame: bool) -> ScoringData {
+        let (scoring_players, points) = self.get_score(is_endgame);
+        ScoringData {
+            completed: self.completed,
+            scoring_players,
+            points,
+            removal_candidate: self.get_removal_candidates(),
+        }
+    }
+
     pub fn get_meeples(&self) -> Vec<Player> {
-        self.visited
+        self.get_removal_candidates()
             .iter()
             .filter_map(|(coord, direction)| {
                 let tile = self.board.at(coord)?;
@@ -117,6 +136,18 @@ impl FeatureResult<'_> {
             .unique()
             .filter(|coord| self.board.at(coord).is_some())
     }
+
+    fn get_removal_candidates(&self) -> HashSet<(Coordinate, TileClickTarget)> {
+        let out: HashSet<(Coordinate, TileClickTarget)> = match self.feature {
+            MiniTile::Road | MiniTile::City => self.visited.clone(),
+            MiniTile::Monastery => {
+                HashSet::from([(self.originator_coord, TileClickTarget::Center)])
+            }
+            MiniTile::Grass | MiniTile::Junction => HashSet::from([]),
+        };
+        out
+    }
+
     pub fn get_score(&self, is_endgame: bool) -> (HashSet<Player>, u8) {
         if !is_endgame && !self.completed {
             return (HashSet::from([]), 0);
@@ -138,7 +169,7 @@ impl FeatureResult<'_> {
                 unit_count * multiplier
             }
             MiniTile::Monastery => self.get_present_tiles().count() as u8,
-            _ => 0,
+            MiniTile::Grass | MiniTile::Junction => 0,
         };
         (players, score)
     }
@@ -198,17 +229,18 @@ pub trait BoardData {
         Some(FeatureResult {
             board: Box::new(self),
             originators: keys,
+            originator_coord: *initial_coord,
             completed: complete,
             feature: initial_feature.clone(),
             visited,
         })
     }
 
-    fn get_completion_points(
-        &self,
+    fn get_feature_score_data<'a>(
+        &'a self,
         coord: &Coordinate,
-        tile: &TileData,
-    ) -> HashMap<Option<Player>, u8>
+        tile: &'a TileData,
+    ) -> Vec<ScoringData>
     where
         Self: Sized,
     {
@@ -236,7 +268,6 @@ pub trait BoardData {
                 data.push(feature_result);
             }
         }
-        let mut out: HashMap<Option<Player>, u8> = HashMap::from([]);
 
         let mut monestary_checks: Vec<(&TileData, Coordinate)> = OCTAL_DELTAS
             .iter()
@@ -255,9 +286,17 @@ pub trait BoardData {
                 }
             }
         }
+        data.iter().map(|x| x.as_scoring_data(false)).collect()
+    }
 
-        for datum in data {
-            let (players, score) = datum.get_score(false);
+    fn get_points_from_score_data(&self, scores: &Vec<ScoringData>) -> HashMap<Option<Player>, u8>
+    where
+        Self: Sized,
+    {
+        let mut out: HashMap<Option<Player>, u8> = HashMap::from([]);
+        for datum in scores {
+            let players = &datum.scoring_players;
+            let score = datum.points;
             if players.is_empty() {
                 let cur = out.get(&None).unwrap_or(&0);
                 out.insert(None, cur + score);
@@ -266,12 +305,24 @@ pub trait BoardData {
                 if let Some(cur) = out.get_mut(&Some(player.clone())) {
                     *cur += score;
                 } else {
-                    out.insert(Some(player), score);
+                    out.insert(Some(player.clone()), score);
                 }
             }
         }
 
         out
+    }
+
+    fn get_completion_points(
+        &self,
+        coord: &Coordinate,
+        tile: &TileData,
+    ) -> HashMap<Option<Player>, u8>
+    where
+        Self: Sized,
+    {
+        let scores = self.get_feature_score_data(coord, tile);
+        self.get_points_from_score_data(&scores)
     }
 
     fn get_monestary_feature_result(
@@ -299,6 +350,7 @@ pub trait BoardData {
         Some(FeatureResult {
             board: Box::new(self),
             originators: HashSet::from([TileClickTarget::Center]),
+            originator_coord: *initial_coord,
             completed,
             feature: MiniTile::Monastery,
             visited: out,
@@ -412,6 +464,26 @@ impl ConcreteBoard {
         let offset = DELTAS_MAP.get(direction).unwrap();
         (coord.0 + offset.0, coord.1 + offset.1)
     }
+
+    pub fn remove_meeples(
+        &mut self,
+        set: HashSet<(Coordinate, TileClickTarget)>,
+    ) -> HashMap<Player, u8> {
+        let mut return_meeples: HashMap<Player, u8> = HashMap::from([]);
+        for (coord, target) in set {
+            if let Some(tile) = self.data.get_mut(&coord) {
+                if let Some(player) = tile.clear_meeple(&target) {
+                    if let Some(output_count) = return_meeples.get_mut(&player) {
+                        *output_count += 1;
+                    } else {
+                        return_meeples.insert(player, 1);
+                    }
+                }
+            }
+        }
+        return_meeples
+    }
+
     fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
         OverlaidBoard {
             board: Box::new(self),
@@ -533,17 +605,22 @@ mod tests {
     fn complete_monestary() {
         let mut board = ConcreteBoard::default();
 
-        let tile_monestary: TileData = TileDataBuilder {
+        let mut tile_monastery: TileData = TileDataBuilder {
             center: MiniTile::Monastery,
             ..Default::default()
         }
         .into();
-        board.set((30, 30), tile_monestary);
+        let success = tile_monastery.place_meeple(&TileClickTarget::Center, &Player::Black);
+        assert!(success);
+        board.set((30, 30), tile_monastery);
 
-        let tile: TileData = TileDataBuilder {
+        let mut tile: TileData = TileDataBuilder {
             ..Default::default()
         }
         .into();
+
+        let success = tile.place_meeple(&TileClickTarget::Center, &Player::White);
+        assert!(success);
 
         board.set((30, 31), tile.clone());
         board.set((29, 31), tile.clone());
@@ -558,11 +635,24 @@ mod tests {
         assert_eq!(
             board
                 .get_completion_points(&(31, 30), &tile)
-                .get(&None)
+                .get(&Some(Player::Black))
                 .unwrap_or(&0)
                 .clone(),
             9
         );
+
+        let score_data = board.get_feature_score_data(&(31, 30), &tile);
+        let mut removed = 0;
+        for data in score_data {
+            if !data.completed {
+                continue;
+            }
+            let out = board.remove_meeples(data.removal_candidate);
+            removed += out.get(&Player::Black).unwrap_or(&0);
+            removed += out.get(&Player::White).unwrap_or(&0);
+        }
+
+        assert_eq!(removed, 1);
     }
 
     #[test]
@@ -571,6 +661,9 @@ mod tests {
 
         let tile_city: TileData = TileDataBuilder {
             top: MiniTile::City,
+            left: MiniTile::Road,
+            right: MiniTile::Road,
+            center: MiniTile::Road,
             ..Default::default()
         }
         .into();
@@ -580,6 +673,8 @@ mod tests {
         let maybe_tile = board.at_mut(&(1, 0));
         if let Some(tile) = maybe_tile {
             let success = tile.place_meeple(&TileClickTarget::Top, &player);
+            assert!(success);
+            let success = tile.place_meeple(&TileClickTarget::Left, &player);
             assert!(success);
         }
 
@@ -592,8 +687,22 @@ mod tests {
 
         let tile = board.at(&(0, 0)).unwrap();
         let completion = board.get_completion_points(&(0, 0), tile);
-        let points = *completion.get(&Some(player)).unwrap_or(&0);
+        let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
         assert_eq!(points, 4);
+
+        let score_data = board.get_feature_score_data(&(0, 0), tile);
+        let completion = board.get_points_from_score_data(&score_data);
+        let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
+        assert_eq!(points, 4);
+
+        let mut removed = 0;
+        for data in score_data {
+            let out = board.remove_meeples(data.removal_candidate);
+            removed += out.get(&player).unwrap_or(&0);
+            println!("{out:?}");
+        }
+
+        assert_eq!(removed, 1);
     }
 
     #[test]
@@ -608,6 +717,9 @@ mod tests {
         board.set((1, 0), tile_city);
 
         let mut tile_city: TileData = TileDataBuilder {
+            top: MiniTile::Road,
+            left: MiniTile::Road,
+            center: MiniTile::Road,
             right: MiniTile::City,
             ..Default::default()
         }
@@ -619,12 +731,30 @@ mod tests {
         if let Some(tile) = maybe_tile {
             let success = tile.place_meeple(&TileClickTarget::Bottom, &player);
             assert!(success);
+            let success = tile.place_meeple(&TileClickTarget::Right, &player);
+            assert!(success);
         }
 
         let tile = board.at(&(0, 0)).unwrap();
         let completion = board.get_completion_points(&(0, 0), tile);
-        let points = *completion.get(&Some(player)).unwrap_or(&0);
+        let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
         assert_eq!(points, 4);
+
+        let score_data = board.get_feature_score_data(&(0, 0), tile);
+        let completion = board.get_points_from_score_data(&score_data);
+        let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
+        assert_eq!(points, 4);
+
+        let mut removed = 0;
+        for data in score_data {
+            if !data.completed {
+                continue;
+            }
+            let out = board.remove_meeples(data.removal_candidate);
+            removed += out.get(&player).unwrap_or(&0);
+        }
+
+        assert_eq!(removed, 1);
     }
 
     #[test]
