@@ -6,6 +6,7 @@ use egui::{
 use crate::{
     board::{Coordinate, OCTAL_DELTAS},
     render::{ClickMessage, InteractionMessage, TILE_CLICK_ID},
+    referee::Player, 
     tile::{MiniTile, Rotation, TileClickTarget, TileData},
 };
 
@@ -16,6 +17,7 @@ fn tile_ui(
     coord: Coordinate,
     preview_tile: &Option<TileData>,
     is_placing_meeple: bool,
+    current_player: Player,
 ) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(vec2(size, size), egui::Sense::click());
 
@@ -88,7 +90,7 @@ fn tile_ui(
                         }
                     } else if let Some(hover_pos) = response.hover_pos() {
                         if is_placing_meeple && mini_rect.contains(hover_pos) {
-                            meeple_paint(ui, mini_rect, Color32::TRANSPARENT);
+                            meeple_paint(ui, mini_rect, current_player.get_color());
                         }
                     }
                 }
@@ -169,6 +171,7 @@ pub fn tile<'a>(
     coord: Coordinate,
     preview_tile: &'a Option<TileData>,
     is_placing_meeple: bool,
+    current_player: Player,
 ) -> impl egui::Widget + 'a {
-    move |ui: &mut egui::Ui| tile_ui(ui, size, tile, coord, preview_tile, is_placing_meeple)
+    move |ui: &mut egui::Ui| tile_ui(ui, size, tile, coord, preview_tile, is_placing_meeple, current_player)
 }

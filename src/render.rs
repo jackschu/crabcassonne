@@ -145,6 +145,7 @@ impl eframe::App for MyApp {
                                                     &state.preview_tile
                                                 },
                                                 state.is_placing_meeple,
+                                                state.current_player.clone(),
                                             ))
                                         })
                                         .inner;
