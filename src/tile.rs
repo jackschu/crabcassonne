@@ -186,13 +186,13 @@ impl From<TileDataBuilder> for TileData {
 }
 
 impl TileData {
-    pub fn place_meeple(&mut self, target: &TileClickTarget, player: Player) -> bool {
+    pub fn place_meeple(&mut self, target: &TileClickTarget, player: &Player) -> bool {
         let resolved_target = self.rotation.rotate(target);
         if self.meeple_locations.get(&resolved_target).is_some() {
             return false;
         }
         self.meeple_locations
-            .insert(resolved_target, player);
+            .insert(resolved_target, player.clone());
         true
     }
     pub fn at(&self, target: &TileClickTarget) -> &MiniTile {

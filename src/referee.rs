@@ -22,7 +22,10 @@ pub struct RefereeState {
     pub is_placing_meeple: bool,
     pub player_scores: HashMap<Player, u32>,
     placing_tile: Option<Coordinate>,
+    pub player_meeples: HashMap<Player, u8>,
 }
+
+static INITIAL_MEEPLES: u8 = 7;
 
 impl Default for RefereeState {
     fn default() -> Self {
@@ -33,6 +36,10 @@ impl Default for RefereeState {
             turn_idx: 0,
             is_placing_meeple: false,
             player_scores: HashMap::from([(Player::White, 0), (Player::Black, 0)]),
+            player_meeples: HashMap::from([
+                (Player::White, INITIAL_MEEPLES),
+                (Player::Black, INITIAL_MEEPLES),
+            ]),
             placing_tile: None,
         }
     }
@@ -48,6 +55,7 @@ impl RefereeState {
             turn_order: self.turn_order.clone(),
             current_player: player,
             player_scores: self.player_scores.clone(),
+            player_meeples: self.player_meeples.clone(),
         }
     }
     fn score_placement(&mut self) {
@@ -140,11 +148,15 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
             InteractionMessage::Click(message) => {
                 if state.is_placing_meeple {
                     let player = state.get_player().clone();
-                    if state.is_legal_meeple_placement(message.coord, &message.location) {
+                    let meeples_remaining = state.player_meeples.get(&player).unwrap_or(&0).clone();
+                    if meeples_remaining > 0
+                        && state.is_legal_meeple_placement(message.coord, &message.location)
+                    {
                         let maybe_tile = state.board.at_mut(&message.coord);
                         if let Some(tile) = maybe_tile {
-                            let success = tile.place_meeple(&message.location, player);
+                            let success = tile.place_meeple(&message.location, &player);
                             if success {
+                                state.player_meeples.insert(player, meeples_remaining - 1);
                                 state.progress_phase(None);
                             }
                         }
