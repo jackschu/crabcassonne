@@ -49,7 +49,7 @@ static COUPLINGS: [(TileClickTarget, TileClickTarget); 4] = [
 static COUPLINGS_MAP: Lazy<HashMap<TileClickTarget, TileClickTarget>> =
     Lazy::new(|| HashMap::from(COUPLINGS.clone()));
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ScoringData {
     pub scoring_players: HashSet<Player>,
     pub points: u8,
@@ -192,6 +192,9 @@ pub trait BoardData {
     {
         let initial_tile = self.at(initial_coord)?;
         let initial_feature = initial_tile.at(&direction);
+        if initial_feature != &MiniTile::Road && initial_feature != &MiniTile::City {
+            return None;
+        }
         let mut complete = true;
         let mut queue = vec![(*initial_coord, direction.clone())];
         let mut visited = HashSet::from([(*initial_coord, direction.clone())]);
@@ -653,6 +656,52 @@ mod tests {
         }
 
         assert_eq!(removed, 1);
+    }
+
+    #[test]
+    fn contested_road() {
+        let mut board = ConcreteBoard::default();
+
+        let mut tile: TileData = TileDataBuilder {
+            top: MiniTile::Road,
+            ..Default::default()
+        }
+        .into();
+
+        let success = tile.place_meeple(&TileClickTarget::Top, &Player::Black);
+        assert!(success);
+        board.set((0, 0), tile.clone());
+
+        tile.rotate_right();
+        board.set((-1, -1), tile.clone());
+
+        let mut tile: TileData = TileDataBuilder {
+            top: MiniTile::Road,
+            ..Default::default()
+        }
+        .into();
+        tile.rotate_left();
+        let success = tile.place_meeple(&TileClickTarget::Left, &Player::White);
+        assert!(success);
+
+        board.set((-1, 1), tile.clone());
+
+        let mut completion_tile: TileData = TileDataBuilder {
+            top: MiniTile::Road,
+            bottom: MiniTile::Road,
+            right: MiniTile::Road,
+            center: MiniTile::Road,
+            ..Default::default()
+        }
+        .into();
+        completion_tile.rotate_right();
+
+        let score_data = board.get_feature_score_data(&(-1, 0), &completion_tile);
+        assert_eq!(score_data.len(), 1);
+
+        let datum = &score_data[0];
+        assert_eq!(datum.scoring_players, HashSet::from([Player::Black]));
+        assert_eq!(datum.points, 4);
     }
 
     #[test]
