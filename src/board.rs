@@ -239,6 +239,37 @@ pub trait BoardData {
         })
     }
 
+    fn get_all_scoring_data(&self) -> Vec<ScoringData>
+    where
+        Self: Sized,
+    {
+        let mut out: Vec<ScoringData> = vec![];
+        let mut visited: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
+        let meeple_tiles: Vec<(Coordinate, &TileData)> = self
+            .tiles_present()
+            .flat_map(|coord| Some((coord, self.at(&coord)?)))
+            .collect();
+
+        for (coord, tile) in meeple_tiles {
+            let directions = tile.get_meeple_locations();
+
+            for (direction, _player) in directions {
+                if visited.contains(&(coord, direction.clone())) {
+                    continue;
+                }
+                if let Some(result) = self.get_feature_result(&coord, &direction) {
+                    let data = result.as_scoring_data(true);
+                    for visit in &data.removal_candidate {
+                        visited.insert(visit.clone());
+                    }
+
+                    out.push(data);
+                }
+            }
+        }
+        out
+    }
+
     fn get_feature_score_data<'a>(
         &'a self,
         coord: &Coordinate,
@@ -260,13 +291,13 @@ pub trait BoardData {
                 continue;
             }
             let feature_result = board.get_connecting_feature_results(coord, direction.clone());
-            for elem in feature_result
-                .as_ref()
-                .map(|x| &x.originators)
-                .unwrap_or(&HashSet::from([]))
-            {
-                seen.insert(elem.clone());
-            }
+            seen.extend(
+                feature_result
+                    .as_ref()
+                    .map(|x| &x.originators)
+                    .unwrap_or(&HashSet::from([]))
+                    .clone(),
+            );
             if let Some(feature_result) = feature_result {
                 data.push(feature_result);
             }
@@ -290,6 +321,26 @@ pub trait BoardData {
             }
         }
         data.iter().map(|x| x.as_scoring_data(false)).collect()
+    }
+
+    fn get_feature_result(
+        &self,
+        coord: &Coordinate,
+        direction: &TileClickTarget,
+    ) -> Option<FeatureResult>
+    where
+        Self: Sized,
+    {
+        let tile = self.at(coord)?;
+        let feature = tile.at(direction);
+
+        match feature {
+            MiniTile::City | MiniTile::Road => {
+                self.get_connecting_feature_results(coord, direction.clone())
+            }
+            MiniTile::Grass | MiniTile::Junction => None,
+            MiniTile::Monastery => self.get_monastery_feature_result(coord, direction),
+        }
     }
 
     fn get_points_from_score_data(&self, scores: &Vec<ScoringData>) -> HashMap<Option<Player>, u8>
