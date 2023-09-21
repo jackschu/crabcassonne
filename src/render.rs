@@ -95,7 +95,15 @@ impl eframe::App for MyApp {
                 }
                 for player in &state.turn_order {
                     ui.horizontal(|ui| {
-                        ui.monospace(format!("Player: {}", player,));
+                        if player == &state.current_player {
+                            ui.label(egui::RichText::new(format!(
+                                "Player: {}", player,
+                            ))
+                            .monospace()
+                            .background_color(egui::Color32::from_rgb(252, 186, 3)));
+                        } else {
+                            ui.monospace(format!("Player: {}", player,));
+                        }    
                         ui.separator();
                         ui.monospace(format!(
                             "Score: {:03}",
