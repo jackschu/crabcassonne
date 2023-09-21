@@ -325,6 +325,9 @@ impl Default for TileBag {
             1
         ]);
 
+        // for debug endgame
+        // let out: Vec<TileDataBuilder> = data.into_iter().take(5).collect();
+
         TileBag {
             data: data.into_iter().map(|builder| builder.into()).collect(),
             rng: rand::thread_rng(),
