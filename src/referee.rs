@@ -127,7 +127,7 @@ impl RefereeState {
         if let Some(bot) = self.bots.get_mut(&next_player) {
             if let Some(tile) = self.tilebag.peek() {
                 let move_request = bot.get_move(
-                    &tile,
+                    tile,
                     &self.board,
                     self.player_scores.clone(),
                     self.player_meeples.clone(),
@@ -145,13 +145,13 @@ impl RefereeState {
         let next = self.tilebag.peek()?;
 
         let mut next = next.clone();
-        next.rotation = rotation.clone();
+        next.rotation = rotation;
         if !self.is_legal_placement(coord, &next) {
             return None;
         }
         self.tilebag.pull();
 
-        self.board.set(coord, next.clone());
+        self.board.set(coord, next);
         self.progress_phase(Some(coord));
         Some(())
     }
@@ -161,7 +161,7 @@ impl RefereeState {
         coord: Coordinate,
         location: TileClickTarget,
     ) -> Option<()> {
-        let player = self.get_player().clone();
+        let player = self.get_player();
         let meeples_remaining = *self.player_meeples.get(&player).unwrap_or(&0);
         if meeples_remaining == 0 || !self.is_legal_meeple_placement(coord, &location) {
             return None;
@@ -240,13 +240,11 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
                     {
                         println!("illegal meeple placement");
                     }
-                } else {
-                    if state
-                        .handle_tile_placement(message.coord, message.rotation)
-                        .is_none()
-                    {
-                        println!("illegal tile placement");
-                    }
+                } else if state
+                    .handle_tile_placement(message.coord, message.rotation)
+                    .is_none()
+                {
+                    println!("illegal tile placement");
                 }
             }
         }

@@ -41,7 +41,7 @@ impl Bot for RandomBot {
         &mut self,
         tile: &TileData,
         board: &ConcreteBoard,
-        scores: HashMap<Player, u32>,
+        _scores: HashMap<Player, u32>,
         meeples: HashMap<Player, u8>,
     ) -> MoveRequest {
         let coords = board.get_legal_tiles();
@@ -63,9 +63,9 @@ impl Bot for RandomBot {
                 let mut tile = tile.clone();
                 tile.rotation = rotation.clone();
                 if board.is_features_match(&coord, &tile) {
-                    let board = board.with_overlay(coord.clone(), &tile);
+                    let board = board.with_overlay(coord, &tile);
                     if meeples
-                        .get(&self.get_own_player())
+                        .get(self.get_own_player())
                         .map(|ct| ct > &0)
                         .unwrap_or(false)
                     {
