@@ -239,6 +239,23 @@ pub trait BoardData {
         })
     }
 
+    fn get_standing_points(&self) -> HashMap<Player, u8>
+    where
+        Self: Sized,
+    {
+        let mut score_map: HashMap<Player, u8> = HashMap::from([]);
+        let score_data = self.get_all_scoring_data();
+        for data in score_data {
+            for player in &data.scoring_players {
+                if let Some(current) = score_map.get_mut(player) {
+                    *current += data.points;
+                } else {
+                    score_map.insert(player.clone(), data.points);
+                }
+            }
+        }
+        score_map
+    }
     fn get_all_scoring_data(&self) -> Vec<ScoringData>
     where
         Self: Sized,
@@ -538,7 +555,7 @@ impl ConcreteBoard {
         return_meeples
     }
 
-    fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
+    pub fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
         OverlaidBoard {
             board: Box::new(self),
             overlay: HashMap::from([(coord, tile)]),

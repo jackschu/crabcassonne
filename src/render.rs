@@ -82,28 +82,18 @@ impl eframe::App for MyApp {
                 ui.label("Press X to skip meeple placement");
             });
             if let Some(state) = &self.render_state {
-                let mut score_map: HashMap<Player, u8> = HashMap::from([]);
-                let score_data = state.board.get_all_scoring_data();
-                for data in score_data {
-                    for player in &data.scoring_players {
-                        if let Some(current) = score_map.get_mut(player) {
-                            *current += data.points;
-                        } else {
-                            score_map.insert(player.clone(), data.points);
-                        }
-                    }
-                }
+                let score_map = state.board.get_standing_points();
                 for player in &state.turn_order {
                     ui.horizontal(|ui| {
                         if player == &state.current_player {
-                            ui.label(egui::RichText::new(format!(
-                                "Player: {}", player,
-                            ))
-                            .monospace()
-                            .background_color(egui::Color32::from_rgb(252, 186, 3)));
+                            ui.label(
+                                egui::RichText::new(format!("Player: {}", player,))
+                                    .monospace()
+                                    .background_color(egui::Color32::from_rgb(252, 186, 3)),
+                            );
                         } else {
                             ui.monospace(format!("Player: {}", player,));
-                        }    
+                        }
                         ui.separator();
                         ui.monospace(format!(
                             "Score: {:03}",
