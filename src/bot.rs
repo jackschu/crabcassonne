@@ -4,7 +4,7 @@ use rand::rngs::ThreadRng;
 use rand::Rng;
 
 use crate::{
-    board::{BoardData, ConcreteBoard, Coordinate},
+    board::{BoardData, Coordinate},
     referee::Player,
     tile::{Rotation, TileClickTarget, TileData},
 };
@@ -14,7 +14,7 @@ pub trait Bot {
     fn get_move(
         &mut self,
         tile: &TileData,
-        board: &ConcreteBoard,
+        board: &dyn BoardData,
         scores: HashMap<Player, u32>,
         meeples: HashMap<Player, u8>,
     ) -> MoveRequest;
@@ -22,7 +22,7 @@ pub trait Bot {
 
 pub struct RandomBot {
     pub own_player: Player,
-    pub rng: ThreadRng,
+    rng: ThreadRng,
 }
 
 #[derive(Clone)]
@@ -32,6 +32,14 @@ pub struct MoveRequest {
     pub meeple: Option<TileClickTarget>,
 }
 
+impl RandomBot {
+    pub fn new(player: Player) -> Self {
+        RandomBot {
+            own_player: player,
+            rng: rand::thread_rng(),
+        }
+    }
+}
 impl Bot for RandomBot {
     fn get_own_player(&self) -> &Player {
         &self.own_player
@@ -40,7 +48,7 @@ impl Bot for RandomBot {
     fn get_move(
         &mut self,
         tile: &TileData,
-        board: &ConcreteBoard,
+        board: &dyn BoardData,
         _scores: HashMap<Player, u32>,
         meeples: HashMap<Player, u8>,
     ) -> MoveRequest {

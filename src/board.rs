@@ -73,6 +73,12 @@ pub struct OverlaidBoard<'a> {
 }
 
 impl BoardData for OverlaidBoard<'_> {
+    fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
+        OverlaidBoard {
+            board: Box::new(self),
+            overlay: HashMap::from([(coord, tile)]),
+        }
+    }
     fn as_user(&self) -> BoardUser {
         return BoardUser {
             board: Box::new(self),
@@ -184,8 +190,12 @@ pub trait BoardData {
     fn at(&self, coord: &Coordinate) -> Option<&TileData>;
     fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_>;
     fn as_user(&self) -> BoardUser;
+    fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard;
 }
 
+// seems like this weirdo pattern is needed (?) b/c I want to return a reference to
+// board data (w/in feature result), so if this was just to be w/in board data
+// that would be a reference to self which is not object safe?
 pub struct BoardUser<'a> {
     pub board: Box<&'a dyn BoardData>,
 }
@@ -247,7 +257,7 @@ impl BoardUser<'_> {
         })
     }
 
-    fn get_standing_points(&self) -> HashMap<Player, u8> {
+    pub fn get_standing_points(&self) -> HashMap<Player, u8> {
         let mut score_map: HashMap<Player, u8> = HashMap::from([]);
         let score_data = self.get_all_scoring_data();
         for data in score_data {
@@ -503,6 +513,12 @@ impl BoardData for ConcreteBoard {
             board: Box::new(self),
         };
     }
+    fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
+        OverlaidBoard {
+            board: Box::new(self),
+            overlay: HashMap::from([(coord, tile)]),
+        }
+    }
 }
 
 impl ConcreteBoard {
@@ -553,13 +569,6 @@ impl ConcreteBoard {
             }
         }
         return_meeples
-    }
-
-    pub fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
-        OverlaidBoard {
-            board: Box::new(self),
-            overlay: HashMap::from([(coord, tile)]),
-        }
     }
 }
 

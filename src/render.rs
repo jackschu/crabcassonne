@@ -7,7 +7,7 @@ use eframe::egui;
 use egui::{vec2, Id};
 
 use crate::{
-    board::{BoardData, BoardUser, ConcreteBoard, Coordinate},
+    board::{BoardData, ConcreteBoard, Coordinate},
     referee::Player,
     render_tile,
     tile::{Rotation, TileClickTarget, TileData},
@@ -82,20 +82,8 @@ impl eframe::App for MyApp {
                 ui.label("Press X to skip meeple placement");
             });
             if let Some(state) = &self.render_state {
-                let mut score_map: HashMap<Player, u8> = HashMap::from([]);
-                let board_user = BoardUser {
-                    board: Box::new(&state.board),
-                };
-                let score_data = board_user.get_all_scoring_data();
-                for data in score_data {
-                    for player in &data.scoring_players {
-                        if let Some(current) = score_map.get_mut(player) {
-                            *current += data.points;
-                        } else {
-                            score_map.insert(player.clone(), data.points);
-                        }
-                    }
-                }
+                let score_map = state.board.as_user().get_standing_points();
+
                 for player in &state.turn_order {
                     ui.horizontal(|ui| {
                         if player == &state.current_player {

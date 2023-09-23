@@ -24,13 +24,14 @@ pub struct RefereeState {
     pub player_scores: HashMap<Player, u32>,
     placing_tile: Option<Coordinate>,
     pub player_meeples: HashMap<Player, u8>,
-    pub bots: HashMap<Player, RandomBot>,
+    pub bots: HashMap<Player, Box<dyn Bot>>,
 }
 
 static INITIAL_MEEPLES: u8 = 7;
 
 impl Default for RefereeState {
     fn default() -> Self {
+        let bot: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));
         RefereeState {
             board: ConcreteBoard::default(),
             tilebag: TileBag::default(),
@@ -42,23 +43,7 @@ impl Default for RefereeState {
                 (Player::White, INITIAL_MEEPLES),
                 (Player::Black, INITIAL_MEEPLES),
             ]),
-            bots: HashMap::from([
-                (
-                    Player::Black,
-                    RandomBot {
-                        own_player: Player::Black,
-                        rng: rand::thread_rng(),
-                    },
-                ),
-                // uncomment to have a random game
-                // (
-                //     Player::White,
-                //     RandomBot {
-                //         own_player: Player::White,
-                //         rng: rand::thread_rng(),
-                //     },
-                // ),
-            ]),
+            bots: HashMap::from([(Player::Black, bot)]),
             placing_tile: None,
         }
     }
