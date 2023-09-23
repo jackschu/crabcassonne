@@ -73,6 +73,11 @@ pub struct OverlaidBoard<'a> {
 }
 
 impl BoardData for OverlaidBoard<'_> {
+    fn as_user(&self) -> BoardUser {
+        return BoardUser {
+            board: Box::new(self),
+        };
+    }
     fn at(&self, coord: &Coordinate) -> Option<&TileData> {
         if let Some(tile) = self.overlay.get(coord) {
             Some(tile)
@@ -177,20 +182,24 @@ impl FeatureResult<'_> {
 
 pub trait BoardData {
     fn at(&self, coord: &Coordinate) -> Option<&TileData>;
-    fn tiles_placed(&self) -> u32 {
-        self.tiles_present().count() as u32
-    }
     fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_>;
+    fn as_user(&self) -> BoardUser;
+}
 
-    fn get_connecting_feature_results(
+pub struct BoardUser<'a> {
+    pub board: Box<&'a dyn BoardData>,
+}
+impl BoardUser<'_> {
+    pub fn tiles_placed(&self) -> u32 {
+        self.board.tiles_present().count() as u32
+    }
+
+    pub fn get_connecting_feature_results(
         &self,
         initial_coord: &Coordinate,
         direction: TileClickTarget,
-    ) -> Option<FeatureResult>
-    where
-        Self: Sized,
-    {
-        let initial_tile = self.at(initial_coord)?;
+    ) -> Option<FeatureResult> {
+        let initial_tile = self.board.at(initial_coord)?;
         let initial_feature = initial_tile.at(&direction);
         if initial_feature != &MiniTile::Road && initial_feature != &MiniTile::City {
             return None;
@@ -198,9 +207,8 @@ pub trait BoardData {
         let mut complete = true;
         let mut queue = vec![(*initial_coord, direction.clone())];
         let mut visited = HashSet::from([(*initial_coord, direction.clone())]);
-
         while let Some((coord, direction)) = queue.pop() {
-            if let Some(tile) = self.at(&coord) {
+            if let Some(tile) = self.board.at(&coord) {
                 let directions = tile.get_exits(&direction);
                 for direction in &directions {
                     visited.insert((coord, direction.clone()).clone());
@@ -230,7 +238,7 @@ pub trait BoardData {
             .map(|(_, direction)| direction.clone())
             .collect();
         Some(FeatureResult {
-            board: Box::new(self),
+            board: self.board.clone(),
             originators: keys,
             originator_coord: *initial_coord,
             completed: complete,
@@ -239,10 +247,7 @@ pub trait BoardData {
         })
     }
 
-    fn get_standing_points(&self) -> HashMap<Player, u8>
-    where
-        Self: Sized,
-    {
+    fn get_standing_points(&self) -> HashMap<Player, u8> {
         let mut score_map: HashMap<Player, u8> = HashMap::from([]);
         let score_data = self.get_all_scoring_data();
         for data in score_data {
@@ -256,15 +261,14 @@ pub trait BoardData {
         }
         score_map
     }
-    fn get_all_scoring_data(&self) -> Vec<ScoringData>
-    where
-        Self: Sized,
-    {
+
+    pub fn get_all_scoring_data(&self) -> Vec<ScoringData> {
         let mut out: Vec<ScoringData> = vec![];
         let mut visited: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
         let meeple_tiles: Vec<(Coordinate, &TileData)> = self
+            .board
             .tiles_present()
-            .flat_map(|coord| Some((coord, self.at(&coord)?)))
+            .flat_map(|coord| Some((coord, self.board.at(&coord)?)))
             .collect();
 
         for (coord, tile) in meeple_tiles {
@@ -287,19 +291,17 @@ pub trait BoardData {
         out
     }
 
-    fn get_feature_score_data<'a>(
+    pub fn get_feature_score_data<'a>(
         &'a self,
         coord: &Coordinate,
         tile: &'a TileData,
-    ) -> Vec<ScoringData>
-    where
-        Self: Sized,
-    {
+    ) -> Vec<ScoringData> {
         let overlay: HashMap<Coordinate, &TileData> = HashMap::from([(*coord, tile)]);
         let board = OverlaidBoard {
-            board: Box::new(self),
+            board: self.board.clone(),
             overlay,
         };
+        let board_user = board.as_user();
         let mut data: Vec<FeatureResult> = vec![];
         // prevent double reporting single tile
         let mut seen: HashSet<TileClickTarget> = HashSet::from([]);
@@ -307,7 +309,8 @@ pub trait BoardData {
             if seen.get(direction).is_some() {
                 continue;
             }
-            let feature_result = board.get_connecting_feature_results(coord, direction.clone());
+            let feature_result =
+                board_user.get_connecting_feature_results(coord, direction.clone());
             seen.extend(
                 feature_result
                     .as_ref()
@@ -330,8 +333,8 @@ pub trait BoardData {
         monastery_checks.push((tile, *coord));
         for (derived_tile, derived_coord) in monastery_checks {
             if derived_tile.center_matches(&MiniTile::Monastery) {
-                let maybe_result =
-                    board.get_monastery_feature_result(&derived_coord, &TileClickTarget::Center);
+                let maybe_result = board_user
+                    .get_monastery_feature_result(&derived_coord, &TileClickTarget::Center);
                 if let Some(feature_result) = maybe_result {
                     data.push(feature_result);
                 }
@@ -340,15 +343,12 @@ pub trait BoardData {
         data.iter().map(|x| x.as_scoring_data(false)).collect()
     }
 
-    fn get_feature_result(
+    pub fn get_feature_result(
         &self,
         coord: &Coordinate,
         direction: &TileClickTarget,
-    ) -> Option<FeatureResult>
-    where
-        Self: Sized,
-    {
-        let tile = self.at(coord)?;
+    ) -> Option<FeatureResult> {
+        let tile = self.board.at(coord)?;
         let feature = tile.at(direction);
 
         match feature {
@@ -360,10 +360,10 @@ pub trait BoardData {
         }
     }
 
-    fn get_points_from_score_data(&self, scores: &Vec<ScoringData>) -> HashMap<Option<Player>, u8>
-    where
-        Self: Sized,
-    {
+    pub fn get_points_from_score_data(
+        &self,
+        scores: &Vec<ScoringData>,
+    ) -> HashMap<Option<Player>, u8> {
         let mut out: HashMap<Option<Player>, u8> = HashMap::from([]);
         for datum in scores {
             let players = &datum.scoring_players;
@@ -388,10 +388,7 @@ pub trait BoardData {
         &self,
         coord: &Coordinate,
         tile: &TileData,
-    ) -> HashMap<Option<Player>, u8>
-    where
-        Self: Sized,
-    {
+    ) -> HashMap<Option<Player>, u8> {
         let scores = self.get_feature_score_data(coord, tile);
         self.get_points_from_score_data(&scores)
     }
@@ -400,11 +397,11 @@ pub trait BoardData {
         &self,
         initial_coord: &Coordinate,
         direction: &TileClickTarget,
-    ) -> Option<FeatureResult>
-    where
-        Self: Sized,
-    {
-        let feature = self.at(initial_coord).map(|tile| tile.at(direction))?;
+    ) -> Option<FeatureResult> {
+        let feature = self
+            .board
+            .at(initial_coord)
+            .map(|tile| tile.at(direction))?;
         if feature != &MiniTile::Monastery {
             return None;
         }
@@ -414,12 +411,12 @@ pub trait BoardData {
 
         for delta in OCTAL_DELTAS {
             let coord = (initial_coord.0 + delta.0, initial_coord.1 + delta.1);
-            completed = completed && self.at(&coord).is_some();
+            completed = completed && self.board.at(&coord).is_some();
             out.insert((coord, TileClickTarget::Center));
         }
 
         Some(FeatureResult {
-            board: Box::new(self),
+            board: self.board.clone(),
             originators: HashSet::from([TileClickTarget::Center]),
             originator_coord: *initial_coord,
             completed,
@@ -428,11 +425,8 @@ pub trait BoardData {
         })
     }
 
-    fn is_legal_meeple(&self, coord: &Coordinate, target: TileClickTarget) -> Option<()>
-    where
-        Self: Sized,
-    {
-        let tile = self.at(coord)?;
+    pub fn is_legal_meeple(&self, coord: &Coordinate, target: TileClickTarget) -> Option<()> {
+        let tile = self.board.at(coord)?;
         let mini_feature = tile.at(&target);
         match mini_feature {
             MiniTile::City | MiniTile::Road => {
@@ -456,8 +450,9 @@ pub trait BoardData {
             }
         }
     }
-    fn get_legal_tiles(&self) -> HashSet<Coordinate> {
-        self.tiles_present()
+    pub fn get_legal_tiles(&self) -> HashSet<Coordinate> {
+        self.board
+            .tiles_present()
             .flat_map(|tile| -> HashSet<Coordinate> {
                 DELTAS
                     .iter()
@@ -475,13 +470,13 @@ pub trait BoardData {
     }
 
     fn contains_coord(&self, coord: &Coordinate) -> bool {
-        self.at(coord).is_some()
+        self.board.at(coord).is_some()
     }
 
-    fn is_features_match(&self, dest: &Coordinate, incoming_tile: &TileData) -> bool {
+    pub fn is_features_match(&self, dest: &Coordinate, incoming_tile: &TileData) -> bool {
         DELTAS
             .iter()
-            .map(|delta| self.at(&(delta.0 + dest.0, delta.1 + dest.1)))
+            .map(|delta| self.board.at(&(delta.0 + dest.0, delta.1 + dest.1)))
             .zip(COUPLINGS.iter())
             .filter_map(|(existing_tile, coupling)| {
                 let tile = existing_tile?;
@@ -502,6 +497,11 @@ impl BoardData for ConcreteBoard {
     }
     fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_> {
         Box::new(self.data.iter().map(|x| *x.0))
+    }
+    fn as_user(&self) -> BoardUser {
+        return BoardUser {
+            board: Box::new(self),
+        };
     }
 }
 
@@ -579,17 +579,17 @@ mod tests {
         let mut board = ConcreteBoard::default();
         let mut bag = TileBag::default();
         board.set((30, 30), bag.pull().unwrap());
-        assert_eq!(board.get_legal_tiles().len(), 4);
+        assert_eq!(board.as_user().get_legal_tiles().len(), 4);
         board.set((29, 30), bag.pull().unwrap());
-        assert_eq!(board.get_legal_tiles().len(), 6);
+        assert_eq!(board.as_user().get_legal_tiles().len(), 6);
         board.set((29, 30), bag.pull().unwrap());
-        assert_eq!(board.get_legal_tiles().len(), 6);
+        assert_eq!(board.as_user().get_legal_tiles().len(), 6);
 
         board.set((29, 29), bag.pull().unwrap());
-        assert_eq!(board.get_legal_tiles().len(), 7);
+        assert_eq!(board.as_user().get_legal_tiles().len(), 7);
 
         board.set((30, 29), bag.pull().unwrap());
-        assert_eq!(board.get_legal_tiles().len(), 8);
+        assert_eq!(board.as_user().get_legal_tiles().len(), 8);
     }
     #[test]
     fn features_match_basic() {
@@ -604,13 +604,13 @@ mod tests {
         .into();
         let mut tile_right = tile_left.clone();
         board.set((30, 30), tile_left);
-        assert!(!board.is_features_match(&(30, 31), &tile_right));
+        assert!(!board.as_user().is_features_match(&(30, 31), &tile_right));
 
         tile_right.rotate_right();
-        assert!(!board.is_features_match(&(30, 31), &tile_right));
+        assert!(!board.as_user().is_features_match(&(30, 31), &tile_right));
         tile_right.rotate_right();
 
-        assert!(board.is_features_match(&(30, 31), &tile_right));
+        assert!(board.as_user().is_features_match(&(30, 31), &tile_right));
     }
 
     #[test]
@@ -655,6 +655,7 @@ mod tests {
         assert_eq!(
             12,
             board
+                .as_user()
                 .get_completion_points(
                     &(30, 32),
                     &TileDataBuilder {
@@ -705,6 +706,7 @@ mod tests {
 
         assert_eq!(
             board
+                .as_user()
                 .get_completion_points(&(31, 30), &tile)
                 .get(&Some(Player::Black))
                 .unwrap_or(&0)
@@ -712,7 +714,7 @@ mod tests {
             9
         );
 
-        let score_data = board.get_feature_score_data(&(31, 30), &tile);
+        let score_data = board.as_user().get_feature_score_data(&(31, 30), &tile);
         let mut removed = 0;
         for data in score_data {
             if !data.completed {
@@ -764,7 +766,9 @@ mod tests {
         .into();
         completion_tile.rotate_right();
 
-        let score_data = board.get_feature_score_data(&(-1, 0), &completion_tile);
+        let score_data = board
+            .as_user()
+            .get_feature_score_data(&(-1, 0), &completion_tile);
         assert_eq!(score_data.len(), 1);
 
         let datum = &score_data[0];
@@ -803,12 +807,12 @@ mod tests {
         board.set((0, 0), tile_city);
 
         let tile = board.at(&(0, 0)).unwrap();
-        let completion = board.get_completion_points(&(0, 0), tile);
+        let completion = board.as_user().get_completion_points(&(0, 0), tile);
         let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
         assert_eq!(points, 4);
 
-        let score_data = board.get_feature_score_data(&(0, 0), tile);
-        let completion = board.get_points_from_score_data(&score_data);
+        let score_data = board.as_user().get_feature_score_data(&(0, 0), tile);
+        let completion = board.as_user().get_points_from_score_data(&score_data);
         let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
         assert_eq!(points, 4);
 
@@ -853,12 +857,12 @@ mod tests {
         }
 
         let tile = board.at(&(0, 0)).unwrap();
-        let completion = board.get_completion_points(&(0, 0), tile);
+        let completion = board.as_user().get_completion_points(&(0, 0), tile);
         let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
         assert_eq!(points, 4);
 
-        let score_data = board.get_feature_score_data(&(0, 0), tile);
-        let completion = board.get_points_from_score_data(&score_data);
+        let score_data = board.as_user().get_feature_score_data(&(0, 0), tile);
+        let completion = board.as_user().get_points_from_score_data(&score_data);
         let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
         assert_eq!(points, 4);
 
@@ -890,13 +894,14 @@ mod tests {
         let center = (30_i8, 30_i8);
         for delta in DELTAS {
             let dest = (center.0 + delta.0, center.1 + delta.1);
-            assert!(board.is_features_match(&dest, &tile_city));
+            assert!(board.as_user().is_features_match(&dest, &tile_city));
             board.set(dest, tile_city.clone());
         }
 
-        assert!(board.is_features_match(&center, &tile_city));
+        assert!(board.as_user().is_features_match(&center, &tile_city));
         assert_eq!(
             board
+                .as_user()
                 .get_completion_points(&center, &tile_city)
                 .get(&None)
                 .unwrap_or(&0)
@@ -907,9 +912,9 @@ mod tests {
         for _ in 0..100_000 {
             if let Some(tile) = bag.pull() {
                 if tile_city.matches_minis(&tile) {
-                    assert!(board.is_features_match(&center, &tile));
+                    assert!(board.as_user().is_features_match(&center, &tile));
                 } else {
-                    assert!(!board.is_features_match(&center, &tile));
+                    assert!(!board.as_user().is_features_match(&center, &tile));
                 }
             } else {
                 break;

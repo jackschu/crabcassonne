@@ -8,7 +8,7 @@ use egui::Color32;
 
 use crate::{
     board::BoardData,
-    board::{ConcreteBoard, Coordinate},
+    board::{BoardUser, ConcreteBoard, Coordinate},
     bot::{Bot, RandomBot},
     render::{InteractionMessage, RenderMessage, RenderState},
     tile::{Rotation, TileClickTarget, TileData},
@@ -77,11 +77,16 @@ impl RefereeState {
             player_meeples: self.player_meeples.clone(),
         }
     }
+    fn board_user(&self) -> BoardUser {
+        BoardUser {
+            board: Box::new(&self.board),
+        }
+    }
     fn score_placement(&mut self) {
         if let Some(coord) = &self.placing_tile {
             if let Some(tile) = self.board.at(coord) {
-                let score_data = self.board.get_feature_score_data(coord, tile);
-                let points = self.board.get_points_from_score_data(&score_data);
+                let score_data = self.board_user().get_feature_score_data(coord, tile);
+                let points = self.board_user().get_points_from_score_data(&score_data);
                 for (maybe_player, addition) in points {
                     if let Some(player) = maybe_player {
                         if let Some(value) = self.player_scores.get_mut(&player) {
@@ -178,18 +183,20 @@ impl RefereeState {
         self.turn_order[self.turn_idx].clone()
     }
     pub fn is_legal_meeple_placement(&self, coord: Coordinate, target: &TileClickTarget) -> bool {
-        self.board.is_legal_meeple(&coord, target.clone()).is_some()
+        self.board_user()
+            .is_legal_meeple(&coord, target.clone())
+            .is_some()
     }
     pub fn is_legal_placement(&self, coord: Coordinate, tile: &TileData) -> bool {
-        if self.board.tiles_placed() == 0 {
+        if self.board_user().tiles_placed() == 0 {
             return true;
         }
-        let legal_tiles = self.board.get_legal_tiles();
+        let legal_tiles = self.board_user().get_legal_tiles();
         if !legal_tiles.contains(&coord) {
             return false;
         }
 
-        if !self.board.is_features_match(&coord, tile) {
+        if !self.board_user().is_features_match(&coord, tile) {
             return false;
         }
         true
