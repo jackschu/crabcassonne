@@ -1,3 +1,4 @@
+pub mod arena;
 pub mod board;
 pub mod bot;
 pub mod referee;

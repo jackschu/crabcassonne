@@ -50,6 +50,22 @@ impl Default for RefereeState {
 }
 
 impl RefereeState {
+    pub fn from_bots(bots: HashMap<Player, Box<dyn Bot>>) -> Self {
+        let mut players: Vec<Player> = bots.iter().map(|(k, _v)| k.clone()).collect();
+        players.sort();
+        let player_scores: HashMap<Player, u32> = players.iter().map(|p| (p.clone(), 0)).collect();
+        let player_meeples: HashMap<Player, u8> = players
+            .iter()
+            .map(|p| (p.clone(), INITIAL_MEEPLES))
+            .collect();
+        RefereeState {
+            turn_order: players,
+            player_scores,
+            player_meeples,
+            bots,
+            ..Default::default()
+        }
+    }
     pub fn clone_into(&self) -> RenderState {
         let player = self.get_player();
         RenderState {
@@ -188,10 +204,10 @@ impl RefereeState {
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Player {
-    Black,
     White,
+    Black,
 }
 
 impl Player {
