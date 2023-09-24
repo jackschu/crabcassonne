@@ -13,10 +13,12 @@ use crabcassonne::{
 
 fn main() {
     //    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-    demo_1p();
+    for _i in 0..1000 {
+        demo_0p();
+    }
 }
 
-#[allow(dead_code, unused_must_use)]
+#[allow(dead_code)]
 fn demo_2p() {
     let (input_sender, input_receiver) = channel::<RenderMessage>();
     let (sender, receiver) = channel::<InteractionMessage>();
@@ -31,7 +33,7 @@ fn demo_2p() {
         let bot_b: Box<dyn Bot> =
             Box::new(HumanBot::new(Player::Black, receiver_mutex, input_sender));
 
-        Match::play(vec![bot_w, bot_b]);
+        Match::play(vec![bot_w, bot_b]).unwrap().print();
     });
 
     let options = eframe::NativeOptions {
@@ -47,14 +49,14 @@ fn demo_2p() {
     .unwrap();
 }
 
-#[allow(dead_code, unused_must_use)]
+#[allow(dead_code)]
 fn demo_0p() {
     let bot_w: Box<dyn Bot> = Box::new(RandomBot::new(Player::White));
     let bot_b: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));
-    Match::play(vec![bot_w, bot_b]);
+    Match::play(vec![bot_w, bot_b]).unwrap().print();
 }
 
-#[allow(dead_code, unused_must_use)]
+#[allow(dead_code)]
 fn demo_1p() {
     let (input_sender, input_receiver) = channel::<RenderMessage>();
     let (sender, receiver) = channel::<InteractionMessage>();
@@ -67,7 +69,7 @@ fn demo_1p() {
         ));
         let bot_b: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));
 
-        Match::play(vec![bot_w, bot_b]);
+        Match::play(vec![bot_w, bot_b]).unwrap().print();
     });
 
     let options = eframe::NativeOptions {

@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    fmt,
-    sync::mpsc::{Receiver, Sender},
-};
+use std::{collections::HashMap, fmt};
 
 use egui::Color32;
 
@@ -11,7 +7,7 @@ use crate::{
     board::BoardData,
     board::{BoardUser, ConcreteBoard, Coordinate},
     bot::MoveRequest,
-    render::{InteractionMessage, RenderMessage, RenderState},
+    render::RenderState,
     tile::{Rotation, TileClickTarget, TileData},
     tilebag::TileBag,
 };
@@ -239,42 +235,5 @@ impl Player {
 impl fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-
-pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<RenderMessage>) {
-    let mut state = RefereeState::default();
-    sender
-        .send(RenderMessage::RefereeSync(state.clone_into()))
-        .unwrap();
-    loop {
-        match receiver.recv().unwrap() {
-            InteractionMessage::Print(message) => {
-                println!("recv {}", message);
-            }
-            InteractionMessage::CancelMeeple => {
-                if state.is_placing_meeple {
-                    state.progress_phase(None)
-                }
-            }
-            InteractionMessage::Click(message) => {
-                if state.is_placing_meeple {
-                    if state
-                        .handle_meeple_placement(message.coord, message.location)
-                        .is_err()
-                    {
-                        println!("illegal meeple placement");
-                    }
-                } else if state
-                    .handle_tile_placement(message.coord, message.rotation)
-                    .is_err()
-                {
-                    println!("illegal tile placement");
-                }
-            }
-        }
-        sender
-            .send(RenderMessage::RefereeSync(state.clone_into()))
-            .unwrap();
     }
 }

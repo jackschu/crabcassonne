@@ -7,7 +7,7 @@ use std::{
 use crate::{
     arena::MessageResult,
     referee::Player,
-    tile::{MiniTile, TileClickTarget, TileData, CARDINALS},
+    tile::{MiniTile, Rotation, TileClickTarget, TileData, CARDINALS},
 };
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -258,15 +258,15 @@ impl BoardUser<'_> {
         })
     }
 
-    pub fn get_standing_points(&self) -> HashMap<Player, u8> {
-        let mut score_map: HashMap<Player, u8> = HashMap::from([]);
+    pub fn get_standing_points(&self) -> HashMap<Player, u32> {
+        let mut score_map: HashMap<Player, u32> = HashMap::from([]);
         let score_data = self.get_all_scoring_data();
         for data in score_data {
             for player in &data.scoring_players {
                 if let Some(current) = score_map.get_mut(player) {
-                    *current += data.points;
+                    *current += data.points as u32;
                 } else {
-                    score_map.insert(player.clone(), data.points);
+                    score_map.insert(player.clone(), data.points as u32);
                 }
             }
         }
@@ -470,6 +470,53 @@ impl BoardUser<'_> {
             }
         }
     }
+    pub fn does_legal_move_exist(&self, tile: &TileData) -> bool {
+        let mut coords = self.get_legal_tiles();
+        if self.board.tiles_present().count() == 0 {
+            coords.insert((0, 0));
+        }
+        for coord in coords {
+            for rotation in [
+                Rotation::None,
+                Rotation::Left,
+                Rotation::Flip,
+                Rotation::Right,
+            ] {
+                let mut tile = tile.clone();
+                tile.rotation = rotation.clone();
+                if self.is_features_match(&coord, &tile) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    pub fn get_legal_moves(&self, tile: &TileData) -> Vec<(Coordinate, Rotation)> {
+        let mut coords = self.get_legal_tiles();
+        if self.board.tiles_present().count() == 0 {
+            coords.insert((0, 0));
+        }
+        let mut out: Vec<(Coordinate, Rotation)> = vec![];
+        for coord in coords {
+            for rotation in [
+                Rotation::None,
+                Rotation::Left,
+                Rotation::Flip,
+                Rotation::Right,
+            ] {
+                let mut tile = tile.clone();
+                tile.rotation = rotation.clone();
+                if self.is_features_match(&coord, &tile) {
+                    out.push((coord, rotation.clone()))
+                }
+            }
+        }
+
+        out
+    }
+
     pub fn get_legal_tiles(&self) -> HashSet<Coordinate> {
         self.board
             .tiles_present()

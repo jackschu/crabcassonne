@@ -2,6 +2,7 @@ use rand::{rngs::ThreadRng, Rng};
 
 use crate::{
     arena::MessageResult,
+    board::BoardUser,
     tile::{MiniTile, TileData, TileDataBuilder},
 };
 
@@ -36,6 +37,19 @@ impl TileBag {
         out
     }
 
+    pub fn ensure_legal_draw(&mut self, board_user: &BoardUser) {
+        loop {
+            if let Ok(tile) = self.peek() {
+                let legal = board_user.does_legal_move_exist(tile);
+                if legal {
+                    return;
+                }
+                self.pick_next_idx();
+            } else {
+                return;
+            }
+        }
+    }
     fn pick_next_idx(&mut self) {
         if self.data.is_empty() {
             self.next_idx = NextTileType::Empty;

@@ -180,43 +180,34 @@ impl Bot for RandomBot {
             TileClickTarget::Center,
         ];
         let mut out: Vec<MoveRequest> = vec![];
-        for coord in coords {
-            for rotation in [
-                Rotation::None,
-                Rotation::Left,
-                Rotation::Flip,
-                Rotation::Right,
-            ] {
-                let mut tile = tile.clone();
-                tile.rotation = rotation.clone();
-                if board.as_user().is_features_match(&coord, &tile) {
-                    let board = board.with_overlay(coord, &tile);
-                    if meeples
-                        .get(self.get_own_player())
-                        .map(|ct| ct > &0)
-                        .unwrap_or(false)
+        for (coord, rotation) in board.as_user().get_legal_moves(tile) {
+            let mut tile = tile.clone();
+            tile.rotation = rotation.clone();
+            let board = board.with_overlay(coord, &tile);
+            if meeples
+                .get(self.get_own_player())
+                .map(|ct| ct > &0)
+                .unwrap_or(false)
+            {
+                for dest in &meeple_dests {
+                    if board
+                        .as_user()
+                        .is_legal_meeple(&coord, dest.clone())
+                        .is_ok()
                     {
-                        for dest in &meeple_dests {
-                            if board
-                                .as_user()
-                                .is_legal_meeple(&coord, dest.clone())
-                                .is_ok()
-                            {
-                                out.push(MoveRequest {
-                                    coord,
-                                    rotation: rotation.clone(),
-                                    meeple: Some(dest.clone()),
-                                })
-                            }
-                        }
+                        out.push(MoveRequest {
+                            coord,
+                            rotation: rotation.clone(),
+                            meeple: Some(dest.clone()),
+                        })
                     }
-                    out.push(MoveRequest {
-                        coord,
-                        rotation: rotation.clone(),
-                        meeple: None,
-                    })
                 }
             }
+            out.push(MoveRequest {
+                coord,
+                rotation: rotation.clone(),
+                meeple: None,
+            })
         }
         let idx = self.rng.gen_range(0..out.len());
         out[idx].clone()
