@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::Hash};
 
 use egui::Color32;
 
-use crate::referee::Player;
+use crate::{arena::MessageResult, referee::Player};
 
 #[derive(Clone, Default)]
 pub struct TileDataBuilder {
@@ -191,14 +191,14 @@ impl TileData {
         self.meeple_locations.remove(&resolved_target)
     }
 
-    pub fn place_meeple(&mut self, target: &TileClickTarget, player: &Player) -> bool {
+    pub fn place_meeple(&mut self, target: &TileClickTarget, player: &Player) -> MessageResult<()> {
         let resolved_target = self.rotation.rotate(target);
         if self.meeple_locations.get(&resolved_target).is_some() {
-            return false;
+            return Err("Meeple preexists");
         }
         self.meeple_locations
             .insert(resolved_target, player.clone());
-        true
+        Ok(())
     }
     pub fn at(&self, target: &TileClickTarget) -> &MiniTile {
         let rotated_target = self.rotation.rotate(target);

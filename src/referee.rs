@@ -7,9 +7,10 @@ use std::{
 use egui::Color32;
 
 use crate::{
+    arena::MessageResult,
     board::BoardData,
     board::{BoardUser, ConcreteBoard, Coordinate},
-    bot::{Bot, RandomBot},
+    bot::MoveRequest,
     render::{InteractionMessage, RenderMessage, RenderState},
     tile::{Rotation, TileClickTarget, TileData},
     tilebag::TileBag,
@@ -24,14 +25,12 @@ pub struct RefereeState {
     pub player_scores: HashMap<Player, u32>,
     placing_tile: Option<Coordinate>,
     pub player_meeples: HashMap<Player, u8>,
-    pub bots: HashMap<Player, Box<dyn Bot>>,
 }
 
 static INITIAL_MEEPLES: u8 = 7;
 
 impl Default for RefereeState {
     fn default() -> Self {
-        let bot: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));
         RefereeState {
             board: ConcreteBoard::default(),
             tilebag: TileBag::default(),
@@ -43,16 +42,23 @@ impl Default for RefereeState {
                 (Player::White, INITIAL_MEEPLES),
                 (Player::Black, INITIAL_MEEPLES),
             ]),
-            bots: HashMap::from([(Player::Black, bot)]),
             placing_tile: None,
         }
     }
 }
 
 impl RefereeState {
-    pub fn from_bots(bots: HashMap<Player, Box<dyn Bot>>) -> Self {
-        let mut players: Vec<Player> = bots.iter().map(|(k, _v)| k.clone()).collect();
-        players.sort();
+    pub fn process_move(&mut self, move_request: MoveRequest) -> MessageResult<()> {
+        self.handle_tile_placement(move_request.coord, move_request.rotation)?;
+        if let Some(location) = move_request.meeple {
+            self.handle_meeple_placement(move_request.coord, location)
+        } else {
+            self.progress_phase(None);
+            Ok(())
+        }
+    }
+
+    pub fn from_players(players: Vec<Player>) -> Self {
         let player_scores: HashMap<Player, u32> = players.iter().map(|p| (p.clone(), 0)).collect();
         let player_meeples: HashMap<Player, u8> = players
             .iter()
@@ -62,14 +68,39 @@ impl RefereeState {
             turn_order: players,
             player_scores,
             player_meeples,
-            bots,
             ..Default::default()
         }
     }
+    pub fn clone_into_mid_move(
+        &self,
+        preview_placed: Option<(Coordinate, Rotation)>,
+        is_placing_meeple: bool,
+    ) -> RenderState {
+        let player = self.get_player();
+        let mut board = self.board.clone();
+        let preview_tile = self.tilebag.peek().ok().cloned();
+        if let Some((coord, rotation)) = preview_placed {
+            if let Some(tile) = &preview_tile {
+                let mut tile = tile.clone();
+                tile.rotation = rotation;
+                board.set(coord, tile);
+            }
+        }
+        RenderState {
+            preview_tile,
+            board,
+            is_placing_meeple,
+            turn_order: self.turn_order.clone(),
+            current_player: player,
+            player_scores: self.player_scores.clone(),
+            player_meeples: self.player_meeples.clone(),
+        }
+    }
+
     pub fn clone_into(&self) -> RenderState {
         let player = self.get_player();
         RenderState {
-            preview_tile: self.tilebag.peek().cloned(),
+            preview_tile: self.tilebag.peek().ok().cloned(),
             board: self.board.clone(),
             is_placing_meeple: self.is_placing_meeple,
             turn_order: self.turn_order.clone(),
@@ -124,61 +155,47 @@ impl RefereeState {
             self.is_placing_meeple = true;
             self.placing_tile = placing_tile;
         }
-        let next_player = self.get_player();
-
-        if self.is_placing_meeple {
-            return;
-        }
-
-        if let Some(bot) = self.bots.get_mut(&next_player) {
-            if let Some(tile) = self.tilebag.peek() {
-                let move_request = bot.get_move(
-                    tile,
-                    &self.board,
-                    self.player_scores.clone(),
-                    self.player_meeples.clone(),
-                );
-                self.handle_tile_placement(move_request.coord, move_request.rotation);
-                if let Some(meeple) = move_request.meeple {
-                    self.handle_meeple_placement(move_request.coord, meeple);
-                } else {
-                    self.progress_phase(None);
-                }
-            }
-        }
     }
-    pub fn handle_tile_placement(&mut self, coord: Coordinate, rotation: Rotation) -> Option<()> {
+
+    pub fn handle_tile_placement(
+        &mut self,
+        coord: Coordinate,
+        rotation: Rotation,
+    ) -> MessageResult<()> {
         let next = self.tilebag.peek()?;
 
         let mut next = next.clone();
         next.rotation = rotation;
-        if !self.is_legal_placement(coord, &next) {
-            return None;
-        }
+        self.is_legal_placement(coord, &next)?;
         self.tilebag.pull();
 
         self.board.set(coord, next);
         self.progress_phase(Some(coord));
-        Some(())
+        Ok(())
     }
 
     pub fn handle_meeple_placement(
         &mut self,
         coord: Coordinate,
         location: TileClickTarget,
-    ) -> Option<()> {
+    ) -> MessageResult<()> {
         let player = self.get_player();
         let meeples_remaining = *self.player_meeples.get(&player).unwrap_or(&0);
-        if meeples_remaining == 0 || !self.is_legal_meeple_placement(coord, &location) {
-            return None;
+        if meeples_remaining == 0 {
+            return Err("out of meeples");
         }
-        let tile = self.board.at_mut(&coord)?;
-        if !tile.place_meeple(&location, &player) {
-            return None;
+        if !self.is_legal_meeple_placement(coord, &location) {
+            return Err("illegal meeple placement");
         }
-        self.player_meeples.insert(player, meeples_remaining - 1);
-        self.progress_phase(None);
-        Some(())
+        let tile = self.board.at_mut(&coord);
+        if let Some(tile) = tile {
+            tile.place_meeple(&location, &player)?;
+            self.player_meeples.insert(player, meeples_remaining - 1);
+            self.progress_phase(None);
+            Ok(())
+        } else {
+            Err("placing meeple on non existant tile")
+        }
     }
     pub fn get_player(&self) -> Player {
         self.turn_order[self.turn_idx].clone()
@@ -186,21 +203,21 @@ impl RefereeState {
     pub fn is_legal_meeple_placement(&self, coord: Coordinate, target: &TileClickTarget) -> bool {
         self.board_user()
             .is_legal_meeple(&coord, target.clone())
-            .is_some()
+            .is_ok()
     }
-    pub fn is_legal_placement(&self, coord: Coordinate, tile: &TileData) -> bool {
+    pub fn is_legal_placement(&self, coord: Coordinate, tile: &TileData) -> MessageResult<()> {
         if self.board_user().tiles_placed() == 0 {
-            return true;
+            return Ok(());
         }
         let legal_tiles = self.board_user().get_legal_tiles();
         if !legal_tiles.contains(&coord) {
-            return false;
+            return Err("Illegal tile placement: No connecting tile");
         }
 
         if !self.board_user().is_features_match(&coord, tile) {
-            return false;
+            return Err("Illegal tile placement: features dont match");
         }
-        true
+        Ok(())
     }
 }
 
@@ -244,13 +261,13 @@ pub fn referee_main(receiver: Receiver<InteractionMessage>, sender: Sender<Rende
                 if state.is_placing_meeple {
                     if state
                         .handle_meeple_placement(message.coord, message.location)
-                        .is_none()
+                        .is_err()
                     {
                         println!("illegal meeple placement");
                     }
                 } else if state
                     .handle_tile_placement(message.coord, message.rotation)
-                    .is_none()
+                    .is_err()
                 {
                     println!("illegal tile placement");
                 }

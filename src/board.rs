@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::{
+    arena::MessageResult,
     referee::Player,
     tile::{MiniTile, TileClickTarget, TileData, CARDINALS},
 };
@@ -80,9 +81,9 @@ impl BoardData for OverlaidBoard<'_> {
         }
     }
     fn as_user(&self) -> BoardUser {
-        return BoardUser {
+        BoardUser {
             board: Box::new(self),
-        };
+        }
     }
     fn at(&self, coord: &Coordinate) -> Option<&TileData> {
         if let Some(tile) = self.overlay.get(coord) {
@@ -394,6 +395,7 @@ impl BoardUser<'_> {
         out
     }
 
+    #[allow(dead_code)]
     fn get_completion_points(
         &self,
         coord: &Coordinate,
@@ -435,27 +437,35 @@ impl BoardUser<'_> {
         })
     }
 
-    pub fn is_legal_meeple(&self, coord: &Coordinate, target: TileClickTarget) -> Option<()> {
-        let tile = self.board.at(coord)?;
+    pub fn is_legal_meeple(
+        &self,
+        coord: &Coordinate,
+        target: TileClickTarget,
+    ) -> MessageResult<()> {
+        let tile = self
+            .board
+            .at(coord)
+            .ok_or("Illegal meeple: No tile present")?;
         let mini_feature = tile.at(&target);
         match mini_feature {
             MiniTile::City | MiniTile::Road => {
                 if target == TileClickTarget::Center {
-                    return None;
+                    return Err("Cant place meeple on center for non monestary");
                 }
-                let feature_result = self.get_connecting_feature_results(coord, target)?;
+                let feature_result = self.get_connecting_feature_results(coord, target)
+                    .ok_or("Invariant violation in connecting feature result, likely called on nonconnecting feature")?;
                 if !feature_result.visited.is_empty() && feature_result.get_meeples().is_empty() {
-                    Some(())
+                    Ok(())
                 } else {
-                    None
+                    Err("Illegal meeple: Feature is non empty")
                 }
             }
-            MiniTile::Grass | MiniTile::Junction => None,
+            MiniTile::Grass | MiniTile::Junction => Err("Illegal meeple: Non scoring feature"),
             MiniTile::Monastery => {
                 if tile.get_meeple_at(&target).is_some() {
-                    None
+                    Err("Illegal meeple: Feature is non empty")
                 } else {
-                    Some(())
+                    Ok(())
                 }
             }
         }
@@ -509,9 +519,9 @@ impl BoardData for ConcreteBoard {
         Box::new(self.data.iter().map(|x| *x.0))
     }
     fn as_user(&self) -> BoardUser {
-        return BoardUser {
+        BoardUser {
             board: Box::new(self),
-        };
+        }
     }
     fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
         OverlaidBoard {
@@ -692,7 +702,7 @@ mod tests {
         }
         .into();
         let success = tile_monastery.place_meeple(&TileClickTarget::Center, &Player::Black);
-        assert!(success);
+        assert!(success.is_ok());
         board.set((30, 30), tile_monastery);
 
         let mut tile: TileData = TileDataBuilder {
@@ -701,7 +711,7 @@ mod tests {
         .into();
 
         let success = tile.place_meeple(&TileClickTarget::Center, &Player::White);
-        assert!(success);
+        assert!(success.is_ok());
 
         board.set((30, 31), tile.clone());
         board.set((29, 31), tile.clone());
@@ -748,7 +758,7 @@ mod tests {
         .into();
 
         let success = tile.place_meeple(&TileClickTarget::Top, &Player::Black);
-        assert!(success);
+        assert!(success.is_ok());
         board.set((0, 0), tile.clone());
 
         tile.rotate_right();
@@ -761,7 +771,7 @@ mod tests {
         .into();
         tile.rotate_left();
         let success = tile.place_meeple(&TileClickTarget::Left, &Player::White);
-        assert!(success);
+        assert!(success.is_ok());
 
         board.set((-1, 1), tile.clone());
 
@@ -803,9 +813,9 @@ mod tests {
         let maybe_tile = board.at_mut(&(1, 0));
         if let Some(tile) = maybe_tile {
             let success = tile.place_meeple(&TileClickTarget::Top, &player);
-            assert!(success);
+            assert!(success.is_ok());
             let success = tile.place_meeple(&TileClickTarget::Left, &player);
-            assert!(success);
+            assert!(success.is_ok());
         }
 
         let tile_city: TileData = TileDataBuilder {
@@ -860,9 +870,9 @@ mod tests {
         let maybe_tile = board.at_mut(&(0, 0));
         if let Some(tile) = maybe_tile {
             let success = tile.place_meeple(&TileClickTarget::Bottom, &player);
-            assert!(success);
+            assert!(success.is_ok());
             let success = tile.place_meeple(&TileClickTarget::Right, &player);
-            assert!(success);
+            assert!(success.is_ok());
         }
 
         let tile = board.at(&(0, 0)).unwrap();

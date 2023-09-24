@@ -1,6 +1,9 @@
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::tile::{MiniTile, TileData, TileDataBuilder};
+use crate::{
+    arena::MessageResult,
+    tile::{MiniTile, TileData, TileDataBuilder},
+};
 
 pub struct TileBag {
     data: Vec<TileData>,
@@ -15,11 +18,11 @@ enum NextTileType {
 }
 
 impl TileBag {
-    pub fn peek(&self) -> Option<&TileData> {
+    pub fn peek(&self) -> MessageResult<&TileData> {
         match &self.next_idx {
-            NextTileType::FirstTile(tile) => Some(tile),
-            NextTileType::BagTile(idx) => Some(&self.data[*idx]),
-            NextTileType::Empty => None,
+            NextTileType::FirstTile(tile) => Ok(tile),
+            NextTileType::BagTile(idx) => Ok(&self.data[*idx]),
+            NextTileType::Empty => Err("Empty bag"),
         }
     }
 
@@ -350,6 +353,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(unused_must_use)]
     fn check_count() {
         let mut bag = TileBag::default();
         assert_eq!(bag.count_remaining(), 72);
