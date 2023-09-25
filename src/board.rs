@@ -1,8 +1,4 @@
-use std::{
-    cmp::max,
-    cmp::min,
-    collections::{HashMap, HashSet},
-};
+use std::{cmp::max, cmp::min};
 
 use crate::{
     arena::MessageResult,
@@ -11,12 +7,13 @@ use crate::{
 };
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 pub type Coordinate = (i8, i8);
 
 #[derive(Clone, Default)]
 pub struct ConcreteBoard {
-    data: HashMap<Coordinate, TileData>,
+    data: FxHashMap<Coordinate, TileData>,
 }
 
 pub static DELTAS: [Coordinate; 4] = [(0, 1), (1, 0), (-1, 0), (0, -1)];
@@ -30,13 +27,14 @@ pub static OCTAL_DELTAS: [Coordinate; 8] = [
     (-1, 1),
     (-1, -1),
 ];
-static DELTAS_MAP: Lazy<HashMap<TileClickTarget, Coordinate>> = Lazy::new(|| {
-    HashMap::from([
-        (TileClickTarget::Right, (0, 1)),
-        (TileClickTarget::Bottom, (1, 0)),
-        (TileClickTarget::Top, (-1, 0)),
-        (TileClickTarget::Left, (0, -1)),
-    ])
+static DELTAS_MAP: Lazy<FxHashMap<TileClickTarget, Coordinate>> = Lazy::new(|| {
+    let mut out = FxHashMap::default();
+
+    out.insert(TileClickTarget::Right, (0, 1));
+    out.insert(TileClickTarget::Bottom, (1, 0));
+    out.insert(TileClickTarget::Top, (-1, 0));
+    out.insert(TileClickTarget::Left, (0, -1));
+    out
 });
 
 // From unplaced tile to placed tile
@@ -47,37 +45,44 @@ static COUPLINGS: [(TileClickTarget, TileClickTarget); 4] = [
     (TileClickTarget::Left, TileClickTarget::Right),
 ];
 
-static COUPLINGS_MAP: Lazy<HashMap<TileClickTarget, TileClickTarget>> =
-    Lazy::new(|| HashMap::from(COUPLINGS.clone()));
+static COUPLINGS_MAP: Lazy<FxHashMap<TileClickTarget, TileClickTarget>> = Lazy::new(|| {
+    let mut out = FxHashMap::default();
+    for (k, v) in COUPLINGS.clone() {
+        out.insert(k, v);
+    }
+    out
+});
 
 #[derive(Clone, Debug)]
 pub struct ScoringData {
-    pub scoring_players: HashSet<Player>,
+    pub scoring_players: FxHashSet<Player>,
     pub points: u8,
     pub completed: bool,
-    pub removal_candidate: HashSet<(Coordinate, TileClickTarget)>,
+    pub removal_candidate: FxHashSet<(Coordinate, TileClickTarget)>,
 }
 
 pub struct FeatureResult<'a> {
-    pub originators: HashSet<TileClickTarget>,
+    pub originators: FxHashSet<TileClickTarget>,
     pub originator_coord: Coordinate,
     pub completed: bool,
     pub feature: MiniTile,
-    pub visited: HashSet<(Coordinate, TileClickTarget)>,
+    pub visited: FxHashSet<(Coordinate, TileClickTarget)>,
     pub board: Box<&'a dyn BoardData>,
 }
 
 #[derive(Clone)]
 pub struct OverlaidBoard<'a> {
     pub board: Box<&'a dyn BoardData>,
-    pub overlay: HashMap<Coordinate, &'a TileData>,
+    pub overlay: FxHashMap<Coordinate, &'a TileData>,
 }
 
 impl BoardData for OverlaidBoard<'_> {
     fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
+        let mut overlay = FxHashMap::default();
+        overlay.insert(coord, tile);
         OverlaidBoard {
             board: Box::new(self),
-            overlay: HashMap::from([(coord, tile)]),
+            overlay,
         }
     }
     fn as_user(&self) -> BoardUser {
@@ -103,8 +108,8 @@ impl BoardData for OverlaidBoard<'_> {
 }
 
 impl FeatureResult<'_> {
-    pub fn get_scoring_players(&self) -> HashSet<Player> {
-        let mut counts: HashMap<Player, u8> = HashMap::from([]);
+    pub fn get_scoring_players(&self) -> FxHashSet<Player> {
+        let mut counts: FxHashMap<Player, u8> = FxHashMap::default();
         let mut max_count = 0;
 
         for player in self.get_meeples() {
@@ -112,7 +117,7 @@ impl FeatureResult<'_> {
             counts.insert(player, cur + 1);
             max_count = max(max_count, cur + 1);
         }
-        let mut out: HashSet<Player> = HashSet::from([]);
+        let mut out: FxHashSet<Player> = FxHashSet::default();
         for (player, count) in counts {
             if count != max_count {
                 continue;
@@ -149,20 +154,22 @@ impl FeatureResult<'_> {
             .filter(|coord| self.board.at(coord).is_some())
     }
 
-    fn get_removal_candidates(&self) -> HashSet<(Coordinate, TileClickTarget)> {
-        let out: HashSet<(Coordinate, TileClickTarget)> = match self.feature {
+    fn get_removal_candidates(&self) -> FxHashSet<(Coordinate, TileClickTarget)> {
+        let out: FxHashSet<(Coordinate, TileClickTarget)> = match self.feature {
             MiniTile::Road | MiniTile::City => self.visited.clone(),
             MiniTile::Monastery => {
-                HashSet::from([(self.originator_coord, TileClickTarget::Center)])
+                let mut out = FxHashSet::default();
+                out.insert((self.originator_coord, TileClickTarget::Center));
+                out
             }
-            MiniTile::Grass | MiniTile::Junction => HashSet::from([]),
+            MiniTile::Grass | MiniTile::Junction => FxHashSet::default(),
         };
         out
     }
 
-    pub fn get_score(&self, is_endgame: bool) -> (HashSet<Player>, u8) {
+    pub fn get_score(&self, is_endgame: bool) -> (FxHashSet<Player>, u8) {
         if !is_endgame && !self.completed {
-            return (HashSet::from([]), 0);
+            return (FxHashSet::default(), 0);
         }
         let players = self.get_scoring_players();
         let score = match self.feature {
@@ -217,14 +224,15 @@ impl BoardUser<'_> {
         }
         let mut complete = true;
         let mut queue = vec![(*initial_coord, direction.clone())];
-        let mut visited = HashSet::from([(*initial_coord, direction.clone())]);
+        let mut visited = FxHashSet::default();
+        visited.insert((*initial_coord, direction.clone()));
         while let Some((coord, direction)) = queue.pop() {
             if let Some(tile) = self.board.at(&coord) {
                 let directions = tile.get_exits(&direction);
                 for direction in &directions {
                     visited.insert((coord, direction.clone()).clone());
                 }
-                let next: Vec<(Coordinate, TileClickTarget)> = directions
+                directions
                     .iter()
                     .map(|direction| {
                         (
@@ -232,18 +240,17 @@ impl BoardUser<'_> {
                             COUPLINGS_MAP.get(direction).unwrap().clone(),
                         )
                     })
-                    .filter(|elem| visited.get(elem).is_none())
-                    .collect();
-                for elem in next {
-                    visited.insert(elem.clone());
-                    queue.push(elem);
-                }
+                    .for_each(|elem| {
+                        if visited.insert(elem.clone()) {
+                            queue.push(elem);
+                        }
+                    });
             } else {
                 complete = false;
             }
         }
 
-        let keys: HashSet<TileClickTarget> = visited
+        let keys: FxHashSet<TileClickTarget> = visited
             .iter()
             .filter(|(result_tile, _direction)| initial_coord == result_tile)
             .map(|(_, direction)| direction.clone())
@@ -258,8 +265,8 @@ impl BoardUser<'_> {
         })
     }
 
-    pub fn get_standing_points(&self) -> HashMap<Player, u32> {
-        let mut score_map: HashMap<Player, u32> = HashMap::from([]);
+    pub fn get_standing_points(&self) -> FxHashMap<Player, u32> {
+        let mut score_map: FxHashMap<Player, u32> = FxHashMap::default();
         let score_data = self.get_all_scoring_data();
         for data in score_data {
             for player in &data.scoring_players {
@@ -275,7 +282,7 @@ impl BoardUser<'_> {
 
     pub fn get_all_scoring_data(&self) -> Vec<ScoringData> {
         let mut out: Vec<ScoringData> = vec![];
-        let mut visited: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
+        let mut visited: FxHashSet<(Coordinate, TileClickTarget)> = FxHashSet::default();
         let meeple_tiles: Vec<(Coordinate, &TileData)> = self
             .board
             .tiles_present()
@@ -307,15 +314,12 @@ impl BoardUser<'_> {
         coord: &Coordinate,
         tile: &'a TileData,
     ) -> Vec<ScoringData> {
-        let overlay: HashMap<Coordinate, &TileData> = HashMap::from([(*coord, tile)]);
-        let board = OverlaidBoard {
-            board: self.board.clone(),
-            overlay,
-        };
+        let board = self.board.with_overlay(*coord, tile);
+
         let board_user = board.as_user();
         let mut data: Vec<FeatureResult> = vec![];
         // prevent double reporting single tile
-        let mut seen: HashSet<TileClickTarget> = HashSet::from([]);
+        let mut seen: FxHashSet<TileClickTarget> = FxHashSet::default();
         for direction in &CARDINALS {
             if seen.get(direction).is_some() {
                 continue;
@@ -326,7 +330,7 @@ impl BoardUser<'_> {
                 feature_result
                     .as_ref()
                     .map(|x| &x.originators)
-                    .unwrap_or(&HashSet::from([]))
+                    .unwrap_or(&FxHashSet::default())
                     .clone(),
             );
             if let Some(feature_result) = feature_result {
@@ -374,8 +378,8 @@ impl BoardUser<'_> {
     pub fn get_points_from_score_data(
         &self,
         scores: &Vec<ScoringData>,
-    ) -> HashMap<Option<Player>, u8> {
-        let mut out: HashMap<Option<Player>, u8> = HashMap::from([]);
+    ) -> FxHashMap<Option<Player>, u8> {
+        let mut out: FxHashMap<Option<Player>, u8> = FxHashMap::default();
         for datum in scores {
             let players = &datum.scoring_players;
             let score = datum.points;
@@ -400,7 +404,7 @@ impl BoardUser<'_> {
         &self,
         coord: &Coordinate,
         tile: &TileData,
-    ) -> HashMap<Option<Player>, u8> {
+    ) -> FxHashMap<Option<Player>, u8> {
         let scores = self.get_feature_score_data(coord, tile);
         self.get_points_from_score_data(&scores)
     }
@@ -418,7 +422,7 @@ impl BoardUser<'_> {
             return None;
         }
         let mut completed = true;
-        let mut out: HashSet<(Coordinate, TileClickTarget)> = HashSet::from([]);
+        let mut out: FxHashSet<(Coordinate, TileClickTarget)> = FxHashSet::default();
         out.insert((*initial_coord, TileClickTarget::Center));
 
         for delta in OCTAL_DELTAS {
@@ -427,9 +431,11 @@ impl BoardUser<'_> {
             out.insert((coord, TileClickTarget::Center));
         }
 
+        let mut originators = FxHashSet::default();
+        originators.insert(TileClickTarget::Center);
         Some(FeatureResult {
             board: self.board.clone(),
-            originators: HashSet::from([TileClickTarget::Center]),
+            originators,
             originator_coord: *initial_coord,
             completed,
             feature: MiniTile::Monastery,
@@ -471,10 +477,11 @@ impl BoardUser<'_> {
         }
     }
     pub fn does_legal_move_exist(&self, tile: &TileData) -> bool {
-        let mut coords = self.get_legal_tiles();
         if self.board.tiles_present().count() == 0 {
-            coords.insert((0, 0));
+            return true;
         }
+        let coords = self.get_legal_tiles();
+
         for coord in coords {
             for rotation in [
                 Rotation::None,
@@ -517,7 +524,7 @@ impl BoardUser<'_> {
         out
     }
 
-    pub fn get_legal_tiles(&self) -> HashSet<Coordinate> {
+    pub fn get_legal_tiles(&self) -> FxHashSet<Coordinate> {
         self.board
             .tiles_present()
             .flat_map(|tile| {
@@ -568,9 +575,11 @@ impl BoardData for ConcreteBoard {
         }
     }
     fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
+        let mut overlay = FxHashMap::default();
+        overlay.insert(coord, tile);
         OverlaidBoard {
             board: Box::new(self),
-            overlay: HashMap::from([(coord, tile)]),
+            overlay,
         }
     }
 }
@@ -608,9 +617,9 @@ impl ConcreteBoard {
 
     pub fn remove_meeples(
         &mut self,
-        set: HashSet<(Coordinate, TileClickTarget)>,
-    ) -> HashMap<Player, u8> {
-        let mut return_meeples: HashMap<Player, u8> = HashMap::from([]);
+        set: FxHashSet<(Coordinate, TileClickTarget)>,
+    ) -> FxHashMap<Player, u8> {
+        let mut return_meeples: FxHashMap<Player, u8> = FxHashMap::default();
         for (coord, target) in set {
             if let Some(tile) = self.data.get_mut(&coord) {
                 if let Some(player) = tile.clear_meeple(&target) {
@@ -835,7 +844,9 @@ mod tests {
         assert_eq!(score_data.len(), 1);
 
         let datum = &score_data[0];
-        assert_eq!(datum.scoring_players, HashSet::from([Player::Black]));
+        let mut test_set = FxHashSet::default();
+        test_set.insert(Player::Black);
+        assert_eq!(datum.scoring_players, test_set);
         assert_eq!(datum.points, 4);
     }
 

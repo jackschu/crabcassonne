@@ -1,6 +1,7 @@
-use std::{collections::HashMap, fmt};
+use std::fmt;
 
 use egui::Color32;
+use rustc_hash::FxHashMap;
 
 use crate::{
     arena::MessageResult,
@@ -18,26 +19,30 @@ pub struct RefereeState {
     turn_order: Vec<Player>,
     turn_idx: usize,
     pub is_placing_meeple: bool,
-    pub player_scores: HashMap<Player, u32>,
+    pub player_scores: FxHashMap<Player, u32>,
     placing_tile: Option<Coordinate>,
-    pub player_meeples: HashMap<Player, u8>,
+    pub player_meeples: FxHashMap<Player, u8>,
 }
 
 static INITIAL_MEEPLES: u8 = 7;
 
 impl Default for RefereeState {
     fn default() -> Self {
+        let mut player_scores = FxHashMap::default();
+        player_scores.insert(Player::White, 0);
+        player_scores.insert(Player::Black, 0);
+        let mut player_meeples = FxHashMap::default();
+
+        player_meeples.insert(Player::White, INITIAL_MEEPLES);
+        player_meeples.insert(Player::Black, INITIAL_MEEPLES);
         RefereeState {
             board: ConcreteBoard::default(),
             tilebag: TileBag::default(),
             turn_order: vec![Player::White, Player::Black],
             turn_idx: 0,
             is_placing_meeple: false,
-            player_scores: HashMap::from([(Player::White, 0), (Player::Black, 0)]),
-            player_meeples: HashMap::from([
-                (Player::White, INITIAL_MEEPLES),
-                (Player::Black, INITIAL_MEEPLES),
-            ]),
+            player_scores,
+            player_meeples,
             placing_tile: None,
         }
     }
@@ -55,8 +60,9 @@ impl RefereeState {
     }
 
     pub fn from_players(players: Vec<Player>) -> Self {
-        let player_scores: HashMap<Player, u32> = players.iter().map(|p| (p.clone(), 0)).collect();
-        let player_meeples: HashMap<Player, u8> = players
+        let player_scores: FxHashMap<Player, u32> =
+            players.iter().map(|p| (p.clone(), 0)).collect();
+        let player_meeples: FxHashMap<Player, u8> = players
             .iter()
             .map(|p| (p.clone(), INITIAL_MEEPLES))
             .collect();

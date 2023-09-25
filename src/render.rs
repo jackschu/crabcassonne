@@ -1,10 +1,8 @@
-use std::{
-    collections::HashMap,
-    sync::mpsc::{Receiver, Sender},
-};
+use std::sync::mpsc::{Receiver, Sender};
 
 use eframe::egui;
 use egui::{vec2, Id};
+use rustc_hash::FxHashMap;
 
 use crate::{
     board::{BoardData, ConcreteBoard, Coordinate},
@@ -33,8 +31,8 @@ pub struct RenderState {
     pub turn_order: Vec<Player>,
     pub is_placing_meeple: bool,
     pub current_player: Player,
-    pub player_meeples: HashMap<Player, u8>,
-    pub player_scores: HashMap<Player, u32>,
+    pub player_meeples: FxHashMap<Player, u8>,
+    pub player_scores: FxHashMap<Player, u32>,
 }
 
 pub enum RenderMessage {

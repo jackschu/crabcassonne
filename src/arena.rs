@@ -1,9 +1,7 @@
-use std::{
-    collections::{HashMap, HashSet},
-    println,
-};
+use std::println;
 
 use itertools::Itertools;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
     board::BoardData,
@@ -14,17 +12,19 @@ use crate::{
 pub struct Match {}
 
 pub struct GameResult {
-    pub player_scores: HashMap<Player, u32>,
+    pub player_scores: FxHashMap<Player, u32>,
 }
 
 impl GameResult {
-    pub fn get_winners(&self) -> HashSet<Player> {
+    pub fn get_winners(&self) -> FxHashSet<Player> {
         let mut max_score: i32 = -1;
-        let mut winners: HashSet<Player> = HashSet::new();
+        let mut winners: FxHashSet<Player> = FxHashSet::default();
         for (player, score) in &self.player_scores {
             if max_score < *score as i32 {
                 max_score = *score as i32;
-                winners = HashSet::from([player.clone()]);
+                let mut new_winners = FxHashSet::default();
+                new_winners.insert(player.clone());
+                winners = new_winners;
             } else if max_score == *score as i32 {
                 winners.insert(player.clone());
             }
@@ -58,7 +58,7 @@ impl Match {
             .collect();
         players.sort();
         let mut state = RefereeState::from_players(players.clone());
-        let mut player_map: HashMap<Player, Box<dyn Bot>> = HashMap::new();
+        let mut player_map: FxHashMap<Player, Box<dyn Bot>> = FxHashMap::default();
         for bot in bots {
             player_map.insert(bot.get_own_player().clone(), bot);
         }
