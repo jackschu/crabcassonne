@@ -49,7 +49,7 @@ fn demo_2p() {
 
 #[allow(dead_code)]
 fn demo_0p() {
-    let desired_n = 100000;
+    let desired_n = 10000;
     let t = 8;
     let n_t = desired_n / t;
     let n = n_t * t;

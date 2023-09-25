@@ -520,18 +520,15 @@ impl BoardUser<'_> {
     pub fn get_legal_tiles(&self) -> HashSet<Coordinate> {
         self.board
             .tiles_present()
-            .flat_map(|tile| -> HashSet<Coordinate> {
-                DELTAS
-                    .iter()
-                    .filter_map(|delta| {
-                        let coord = (delta.0 + tile.0, delta.1 + tile.1);
-                        if self.contains_coord(&coord) {
-                            None
-                        } else {
-                            Some(coord)
-                        }
-                    })
-                    .collect()
+            .flat_map(|tile| {
+                DELTAS.iter().filter_map(move |delta| {
+                    let coord = (delta.0 + tile.0, delta.1 + tile.1);
+                    if self.contains_coord(&coord) {
+                        None
+                    } else {
+                        Some(coord)
+                    }
+                })
             })
             .collect()
     }

@@ -105,7 +105,6 @@ in
       [ "async-io" ]
     ];
     dependencies = {
-      zvariant = rustPackages."registry+https://github.com/rust-lang/crates.io-index".zvariant."3.15.0" { inherit profileName; };
       accesskit = rustPackages."registry+https://github.com/rust-lang/crates.io-index".accesskit."0.11.2" { inherit profileName; };
       accesskit_consumer = rustPackages."registry+https://github.com/rust-lang/crates.io-index".accesskit_consumer."0.15.2" { inherit profileName; };
       async_channel = rustPackages."registry+https://github.com/rust-lang/crates.io-index".async-channel."1.9.0" { inherit profileName; };
@@ -443,7 +442,6 @@ in
     registry = "registry+https://github.com/rust-lang/crates.io-index";
     src = fetchCratesIo { inherit name version; sha256 = "674e7a3376837b2e7d12d34d58ac47073c491dc3bf6f71a7adaf687d4d817faa"; };
     dependencies = {
-      zvariant = rustPackages."registry+https://github.com/rust-lang/crates.io-index".zvariant."3.15.0" { inherit profileName; };
       async_recursion = buildRustPackages."registry+https://github.com/rust-lang/crates.io-index".async-recursion."1.0.5" { profileName = "__noProfile"; };
       async_trait = buildRustPackages."registry+https://github.com/rust-lang/crates.io-index".async-trait."0.1.73" { profileName = "__noProfile"; };
       atspi_macros = buildRustPackages."registry+https://github.com/rust-lang/crates.io-index".atspi-macros."0.2.0" { profileName = "__noProfile"; };
