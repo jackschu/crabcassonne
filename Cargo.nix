@@ -909,6 +909,7 @@ in
       itertools = rustPackages."registry+https://github.com/rust-lang/crates.io-index".itertools."0.11.0" { inherit profileName; };
       once_cell = rustPackages."registry+https://github.com/rust-lang/crates.io-index".once_cell."1.18.0" { inherit profileName; };
       rand = rustPackages."registry+https://github.com/rust-lang/crates.io-index".rand."0.8.5" { inherit profileName; };
+      rustc_hash = rustPackages."registry+https://github.com/rust-lang/crates.io-index".rustc-hash."1.1.0" { inherit profileName; };
     };
     devDependencies = {
       criterion = rustPackages."registry+https://github.com/rust-lang/crates.io-index".criterion."0.5.1" { inherit profileName; };
@@ -2905,6 +2906,17 @@ in
       [ "unicode-perl" ]
       [ "unicode-script" ]
       [ "unicode-segment" ]
+    ];
+  });
+  
+  "registry+https://github.com/rust-lang/crates.io-index".rustc-hash."1.1.0" = overridableMkRustCrate (profileName: rec {
+    name = "rustc-hash";
+    version = "1.1.0";
+    registry = "registry+https://github.com/rust-lang/crates.io-index";
+    src = fetchCratesIo { inherit name version; sha256 = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"; };
+    features = builtins.concatLists [
+      [ "default" ]
+      [ "std" ]
     ];
   });
   
