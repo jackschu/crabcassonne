@@ -36,13 +36,11 @@ impl Replay {
 
         let mut buf_reader = std::io::BufReader::new(file);
 
-        // Read the JSON content from the file into a string
         let mut json_string = String::new();
         buf_reader
             .read_to_string(&mut json_string)
             .or(Err("failed to read file"))?;
 
-        // Deserialize the JSON string into a MyStruct object
         serde_json::from_str(&json_string).or(Err("failed to deserialize file"))
     }
 

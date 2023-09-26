@@ -29,12 +29,12 @@ enum Commands {
         #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(0..3))]
         players: u8,
         /// Sets a destination file for replay
-        #[arg(short, long, value_name = "FILE")]
+        #[arg(short, long, value_name = "REPLAY_FILE")]
         output: Option<PathBuf>,
     },
     /// Replay a replay file
     Replay {
-        #[arg(short, long, value_name = "FILE")]
+        #[arg(short, long, value_name = "REPLAY_FILE")]
         input: PathBuf,
         #[arg(short, long, default_value_t = false)]
         headless: bool,

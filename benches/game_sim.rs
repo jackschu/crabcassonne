@@ -9,7 +9,7 @@ fn random_match(n: u64) {
     for _i in 0..n {
         let bot_w: Box<dyn Bot> = Box::new(RandomBot::new(Player::White));
         let bot_b: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));
-        let result = Match::play(vec![bot_w, bot_b]).unwrap();
+        let result = Match::play(vec![bot_w, bot_b], None).unwrap();
         let _winners = result.get_winners();
     }
 }
