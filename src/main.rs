@@ -50,7 +50,7 @@ fn main() {
     }
 }
 
-fn demo_p(player_ct: u8, record: Option<PathBuf>) {
+fn demo_p(player_ct: u8, _record: Option<PathBuf>) {
     let (input_sender, input_receiver) = channel::<RenderMessage>();
     let (sender, receiver) = channel::<InteractionMessage>();
 
@@ -111,12 +111,10 @@ fn demo_threaded() {
                 let winners = result.get_winners();
                 if winners.len() > 1 {
                     draw += 1;
+                } else if winners.into_iter().last().unwrap() == Player::White {
+                    white_win += 1;
                 } else {
-                    if winners.into_iter().last().unwrap() == Player::White {
-                        white_win += 1;
-                    } else {
-                        black_win += 1;
-                    }
+                    black_win += 1;
                 }
             }
             (white_win, draw, black_win)

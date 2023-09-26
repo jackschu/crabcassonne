@@ -1,6 +1,5 @@
-use std::{collections::HashMap, hash::Hash};
-
 use egui::Color32;
+use rustc_hash::FxHashMap;
 
 use crate::{arena::MessageResult, referee::Player};
 
@@ -25,7 +24,7 @@ pub struct TileData {
     right: MiniTile,
     bottom: MiniTile,
 
-    pub meeple_locations: HashMap<TileClickTarget, Player>,
+    pub meeple_locations: FxHashMap<TileClickTarget, Player>,
     pub rotation: Rotation,
 }
 
@@ -141,7 +140,7 @@ impl TileData {
             .get(&self.rotation.rotate(target))
             .cloned()
     }
-    pub fn get_meeple_locations(&self) -> HashMap<TileClickTarget, Player> {
+    pub fn get_meeple_locations(&self) -> FxHashMap<TileClickTarget, Player> {
         self.meeple_locations
             .iter()
             .map(|(target, player)| (self.rotation.counter_rotate(target), player.clone()))
@@ -180,7 +179,7 @@ impl From<TileDataBuilder> for TileData {
             right: builder.right,
             bottom: builder.bottom,
             rotation: Rotation::None,
-            meeple_locations: HashMap::from([]),
+            meeple_locations: FxHashMap::default(),
         }
     }
 }
