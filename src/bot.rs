@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     rc::Rc,
     sync::{
         mpsc::{Receiver, Sender},
@@ -20,11 +21,6 @@ use crate::{
 pub trait Bot {
     fn get_own_player(&self) -> &Player;
     fn get_move(&mut self, state: &RefereeState) -> MoveRequest;
-}
-
-pub struct RandomBot {
-    pub own_player: Player,
-    rng: ThreadRng,
 }
 
 pub struct HumanBot {
@@ -149,6 +145,11 @@ pub struct MoveRequest {
     pub meeple: Option<TileClickTarget>,
 }
 
+pub struct RandomBot {
+    pub own_player: Player,
+    rng: ThreadRng,
+}
+
 impl RandomBot {
     pub fn new(player: Player) -> Self {
         RandomBot {
@@ -211,5 +212,31 @@ impl Bot for RandomBot {
         }
         let idx = self.rng.gen_range(0..out.len());
         out[idx].clone()
+    }
+}
+
+pub struct ReplayBot {
+    pub own_player: Player,
+    pub moves: VecDeque<MoveRequest>,
+}
+
+impl ReplayBot {
+    pub fn unitialized(player: Player) -> Self {
+        ReplayBot {
+            own_player: player,
+            moves: VecDeque::new(),
+        }
+    }
+    pub fn add_move(&mut self, the_move: MoveRequest) {
+        self.moves.push_back(the_move);
+    }
+}
+
+impl Bot for ReplayBot {
+    fn get_own_player(&self) -> &Player {
+        &self.own_player
+    }
+    fn get_move(&mut self, _state: &RefereeState) -> MoveRequest {
+        self.moves.pop_front().unwrap()
     }
 }

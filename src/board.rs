@@ -641,7 +641,7 @@ mod tests {
 
     use crate::{
         tile::{MiniTile, TileDataBuilder},
-        tilebag::TileBag,
+        tilebag::{LegalTileBag, TileBag},
     };
 
     use super::*;
@@ -649,7 +649,7 @@ mod tests {
     #[test]
     fn legal_tiles() {
         let mut board = ConcreteBoard::default();
-        let mut bag = TileBag::default();
+        let mut bag = LegalTileBag::default();
         board.set((30, 30), bag.pull().unwrap());
         assert_eq!(board.as_user().get_legal_tiles().len(), 4);
         board.set((29, 30), bag.pull().unwrap());
@@ -982,7 +982,7 @@ mod tests {
                 .clone(),
             16
         );
-        let mut bag = TileBag::default();
+        let mut bag = LegalTileBag::default();
         for _ in 0..100_000 {
             if let Some(tile) = bag.pull() {
                 if tile_city.matches_minis(&tile) {

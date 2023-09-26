@@ -4,13 +4,63 @@ use itertools::Itertools;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
-    board::BoardData,
-    bot::Bot,
+    board::{BoardData, Coordinate},
+    bot::{Bot, MoveRequest, ReplayBot},
     referee::{Player, RefereeState},
+    tile::{Rotation, TileClickTarget, TileData},
+    tilebag::{LegalTileBag, ReplayTileBag, TileBag},
 };
 
 pub struct Match {}
 
+pub struct Replay {
+    turn_order: Vec<Player>,
+    moves: Vec<ConcreteMove>,
+}
+
+impl Replay {
+    pub fn replay(&self) {
+        let n = self.turn_order.len();
+        let mut bots: Vec<ReplayBot> = vec![];
+        for player in &self.turn_order {
+            bots.push(ReplayBot::unitialized(player.clone()))
+        }
+
+        let mut i = 0;
+        let mut bag_data: Vec<TileData> = vec![];
+        for one_move in &self.moves {
+            let bot = bots.get_mut(i % n).unwrap();
+            bag_data.push(one_move.tile_data.clone());
+            bot.add_move(one_move.into());
+            i += 1;
+        }
+        let bots: Vec<Box<dyn Bot>> = bots
+            .into_iter()
+            .map(|x| -> Box<dyn Bot> { Box::new(x) })
+            .collect();
+
+        Match::play_custom(bots, Box::new(ReplayTileBag::new(bag_data)))
+            .unwrap()
+            .print();
+    }
+}
+
+pub struct ConcreteMove {
+    pub tile_data: TileData,
+    pub coord: Coordinate,
+    pub rotation: Rotation,
+    pub location: Option<TileClickTarget>,
+}
+
+impl Into<MoveRequest> for &ConcreteMove {
+    fn into(self) -> MoveRequest {
+        MoveRequest {
+            coord: self.coord.clone(),
+            rotation: self.rotation.clone(),
+            meeple: self.location.clone(),
+        }
+    }
+}
 pub struct GameResult {
     pub player_scores: FxHashMap<Player, u32>,
 }
@@ -51,13 +101,19 @@ pub type MessageResult<T> = Result<T, &'static str>;
 
 impl Match {
     pub fn play(bots: Vec<Box<dyn Bot>>) -> MessageResult<GameResult> {
+        Self::play_custom(bots, Box::new(LegalTileBag::default()))
+    }
+    pub fn play_custom(
+        bots: Vec<Box<dyn Bot>>,
+        bag: Box<dyn TileBag>,
+    ) -> MessageResult<GameResult> {
         let mut players: Vec<Player> = bots
             .iter()
             .map(|bot| bot.get_own_player().clone())
             .unique()
             .collect();
         players.sort();
-        let mut state = RefereeState::from_players(players.clone());
+        let mut state = RefereeState::from_players(players.clone(), bag);
         let mut player_map: FxHashMap<Player, Box<dyn Bot>> = FxHashMap::default();
         for bot in bots {
             player_map.insert(bot.get_own_player().clone(), bot);

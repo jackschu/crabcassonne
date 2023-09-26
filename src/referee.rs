@@ -10,11 +10,11 @@ use crate::{
     bot::MoveRequest,
     render::RenderState,
     tile::{Rotation, TileClickTarget, TileData},
-    tilebag::TileBag,
+    tilebag::{LegalTileBag, TileBag},
 };
 
 pub struct RefereeState {
-    pub tilebag: TileBag,
+    pub tilebag: Box<dyn TileBag>,
     pub board: ConcreteBoard,
     turn_order: Vec<Player>,
     turn_idx: usize,
@@ -37,7 +37,7 @@ impl Default for RefereeState {
         player_meeples.insert(Player::Black, INITIAL_MEEPLES);
         RefereeState {
             board: ConcreteBoard::default(),
-            tilebag: TileBag::default(),
+            tilebag: Box::new(LegalTileBag::default()),
             turn_order: vec![Player::White, Player::Black],
             turn_idx: 0,
             is_placing_meeple: false,
@@ -59,7 +59,7 @@ impl RefereeState {
         }
     }
 
-    pub fn from_players(players: Vec<Player>) -> Self {
+    pub fn from_players(players: Vec<Player>, bag: Box<dyn TileBag>) -> Self {
         let player_scores: FxHashMap<Player, u32> =
             players.iter().map(|p| (p.clone(), 0)).collect();
         let player_meeples: FxHashMap<Player, u8> = players
@@ -67,6 +67,7 @@ impl RefereeState {
             .map(|p| (p.clone(), INITIAL_MEEPLES))
             .collect();
         RefereeState {
+            tilebag: bag,
             turn_order: players,
             player_scores,
             player_meeples,

@@ -6,38 +6,38 @@ use crate::{
     tile::{MiniTile, TileData, TileDataBuilder},
 };
 
-pub struct TileBag {
-    data: Vec<TileData>,
-    rng: ThreadRng,
-    next_idx: NextTileType,
-}
-
-enum NextTileType {
+pub enum NextTileType {
     FirstTile(TileData),
     BagTile(usize),
     Empty,
 }
 
-impl TileBag {
-    pub fn peek(&self) -> MessageResult<&TileData> {
-        match &self.next_idx {
+pub trait TileBag {
+    fn get_data_mut(&mut self) -> &mut Vec<TileData>;
+
+    fn get_data(&self) -> &Vec<TileData>;
+    fn peek(&self) -> MessageResult<&TileData> {
+        match &self.get_next_idx() {
             NextTileType::FirstTile(tile) => Ok(tile),
-            NextTileType::BagTile(idx) => Ok(&self.data[*idx]),
+            NextTileType::BagTile(idx) => Ok(&self.get_data()[*idx]),
             NextTileType::Empty => Err("Empty bag"),
         }
     }
 
-    pub fn pull(&mut self) -> Option<TileData> {
-        let out = match &self.next_idx {
+    fn pull(&mut self) -> Option<TileData> {
+        let out = match &self.get_next_idx() {
             NextTileType::FirstTile(tile) => Some(tile.clone()),
-            NextTileType::BagTile(idx) => Some(self.data.swap_remove(*idx)),
+            NextTileType::BagTile(idx) => {
+                let idx = idx.clone();
+                Some(self.get_data_mut().swap_remove(idx))
+            }
             NextTileType::Empty => None,
         };
         self.pick_next_idx();
         out
     }
 
-    pub fn ensure_legal_draw(&mut self, board_user: &BoardUser) {
+    fn ensure_legal_draw(&mut self, board_user: &BoardUser) {
         loop {
             if let Ok(tile) = self.peek() {
                 let legal = board_user.does_legal_move_exist(tile);
@@ -50,6 +50,35 @@ impl TileBag {
             }
         }
     }
+    fn pick_next_idx(&mut self);
+    fn get_next_idx(&self) -> &NextTileType;
+
+    fn count_remaining(&self) -> u32 {
+        let offset = if let NextTileType::FirstTile(_) = self.get_next_idx() {
+            1
+        } else {
+            0
+        };
+        self.get_data().len() as u32 + offset
+    }
+}
+
+pub struct LegalTileBag {
+    data: Vec<TileData>,
+    rng: ThreadRng,
+    next_idx: NextTileType,
+}
+
+impl TileBag for LegalTileBag {
+    fn get_data_mut(&mut self) -> &mut Vec<TileData> {
+        &mut self.data
+    }
+    fn get_data(&self) -> &Vec<TileData> {
+        &self.data
+    }
+    fn get_next_idx(&self) -> &NextTileType {
+        &self.next_idx
+    }
     fn pick_next_idx(&mut self) {
         if self.data.is_empty() {
             self.next_idx = NextTileType::Empty;
@@ -57,18 +86,42 @@ impl TileBag {
             self.next_idx = NextTileType::BagTile(self.rng.gen_range(0..self.data.len()));
         }
     }
+}
 
-    pub fn count_remaining(&self) -> u32 {
-        let offset = if let NextTileType::FirstTile(_) = self.next_idx {
-            1
-        } else {
-            0
-        };
-        self.data.len() as u32 + offset
+pub struct ReplayTileBag {
+    pub data: Vec<TileData>,
+    next_idx: NextTileType,
+}
+impl ReplayTileBag {
+    pub fn new(mut data: Vec<TileData>) -> Self {
+        data.reverse();
+        let front = data.pop().unwrap();
+        Self {
+            data,
+            next_idx: NextTileType::FirstTile(front),
+        }
     }
 }
 
-impl Default for TileBag {
+impl TileBag for ReplayTileBag {
+    fn get_data_mut(&mut self) -> &mut Vec<TileData> {
+        &mut self.data
+    }
+    fn get_data(&self) -> &Vec<TileData> {
+        &self.data
+    }
+    fn get_next_idx(&self) -> &NextTileType {
+        &self.next_idx
+    }
+    fn pick_next_idx(&mut self) {
+        if self.data.is_empty() {
+            self.next_idx = NextTileType::Empty;
+        } else {
+            self.next_idx = NextTileType::BagTile(self.data.len() - 1);
+        }
+    }
+}
+impl Default for LegalTileBag {
     fn default() -> Self {
         let mut data: Vec<TileDataBuilder> = Vec::new();
 
@@ -345,7 +398,7 @@ impl Default for TileBag {
         // for debug endgame
         // let out: Vec<TileDataBuilder> = data.into_iter().take(5).collect();
 
-        TileBag {
+        LegalTileBag {
             data: data.into_iter().map(|builder| builder.into()).collect(),
             rng: rand::thread_rng(),
             next_idx: NextTileType::FirstTile(
@@ -369,7 +422,7 @@ mod tests {
     #[test]
     #[allow(unused_must_use)]
     fn check_count() {
-        let mut bag = TileBag::default();
+        let mut bag = LegalTileBag::default();
         assert_eq!(bag.count_remaining(), 72);
         bag.pull();
         assert_eq!(bag.count_remaining(), 71);
@@ -379,7 +432,7 @@ mod tests {
 
     #[test]
     fn check_empties() {
-        let mut bag = TileBag::default();
+        let mut bag = LegalTileBag::default();
         let mut ct = 1_000_000;
         while bag.pull().is_some() {
             ct -= 1;
