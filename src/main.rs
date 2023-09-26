@@ -1,4 +1,5 @@
 use std::{
+    path::PathBuf,
     rc::Rc,
     sync::{mpsc::channel, Mutex},
     thread::{self, JoinHandle},
@@ -11,44 +12,87 @@ use crabcassonne::{
     render::{InteractionMessage, MyApp, RenderMessage},
 };
 
-fn main() {
-    //    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-    demo_0p();
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(version)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
 }
 
-#[allow(dead_code)]
-fn demo_2p() {
+#[derive(Subcommand)]
+enum Commands {
+    /// Start a game
+    Play {
+        /// Number of human players to start a game with
+        #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(0..3))]
+        players: u8,
+        /// Sets a destination file for replay
+        #[arg(short, long, value_name = "FILE")]
+        output: Option<PathBuf>,
+    },
+    /// Replay a replay file
+    Replay {
+        #[arg(short, long, value_name = "FILE")]
+        input: PathBuf,
+    },
+}
+
+fn main() {
+    //    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    let cli = Cli::parse();
+    match cli.command {
+        Commands::Play { players, output } => demo_p(players, output),
+        Commands::Replay { input } => {
+            println!("Not implemented but would read file {input:?}")
+        }
+    }
+}
+
+fn demo_p(player_ct: u8, record: Option<PathBuf>) {
     let (input_sender, input_receiver) = channel::<RenderMessage>();
     let (sender, receiver) = channel::<InteractionMessage>();
 
-    thread::spawn(move || {
+    let handle = thread::spawn(move || {
         let receiver_mutex = Rc::new(Mutex::new(receiver));
-        let bot_w: Box<dyn Bot> = Box::new(HumanBot::new(
-            Player::White,
-            receiver_mutex.clone(),
-            input_sender.clone(),
-        ));
-        let bot_b: Box<dyn Bot> =
-            Box::new(HumanBot::new(Player::Black, receiver_mutex, input_sender));
+        let bot_w: Box<dyn Bot> = if player_ct > 0 {
+            Box::new(HumanBot::new(
+                Player::White,
+                receiver_mutex.clone(),
+                input_sender.clone(),
+            ))
+        } else {
+            Box::new(RandomBot::new(Player::White))
+        };
+
+        let bot_b: Box<dyn Bot> = if player_ct > 1 {
+            Box::new(HumanBot::new(Player::Black, receiver_mutex, input_sender))
+        } else {
+            Box::new(RandomBot::new(Player::Black))
+        };
 
         Match::play(vec![bot_w, bot_b]).unwrap().print();
     });
 
-    let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(1600.0, 900.0)),
-        ..Default::default()
-    };
+    if player_ct > 0 {
+        let options = eframe::NativeOptions {
+            initial_window_size: Some(egui::vec2(1600.0, 900.0)),
+            ..Default::default()
+        };
 
-    eframe::run_native(
-        "Crabcassonne",
-        options,
-        Box::new(|_cc| Box::new(MyApp::create(sender, input_receiver))),
-    )
-    .unwrap();
+        eframe::run_native(
+            "Crabcassonne",
+            options,
+            Box::new(|_cc| Box::new(MyApp::create(sender, input_receiver))),
+        )
+        .unwrap();
+    }
+    handle.join().unwrap();
 }
 
 #[allow(dead_code)]
-fn demo_0p() {
+fn demo_threaded() {
     let desired_n = 100_000;
     let t = 8;
     let n_t = desired_n / t;
@@ -97,33 +141,4 @@ fn demo_0p() {
         draw as f64 / n as f64,
         black_win as f64 / n as f64,
     );
-}
-
-#[allow(dead_code)]
-fn demo_1p() {
-    let (input_sender, input_receiver) = channel::<RenderMessage>();
-    let (sender, receiver) = channel::<InteractionMessage>();
-
-    thread::spawn(move || {
-        let bot_w: Box<dyn Bot> = Box::new(HumanBot::new(
-            Player::White,
-            Rc::new(Mutex::new(receiver)),
-            input_sender,
-        ));
-        let bot_b: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));
-
-        Match::play(vec![bot_w, bot_b]).unwrap().print();
-    });
-
-    let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(1600.0, 900.0)),
-        ..Default::default()
-    };
-
-    eframe::run_native(
-        "Crabcassonne",
-        options,
-        Box::new(|_cc| Box::new(MyApp::create(sender, input_receiver))),
-    )
-    .unwrap();
 }
