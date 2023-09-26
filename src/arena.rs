@@ -1,4 +1,9 @@
-use std::println;
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::PathBuf,
+    println,
+};
 
 use itertools::Itertools;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -11,15 +16,32 @@ use crate::{
     tilebag::{LegalTileBag, ReplayTileBag, TileBag},
 };
 
+use serde::{Deserialize, Serialize};
+
 pub struct Match {}
 
+#[derive(Deserialize, Serialize, Default)]
 pub struct Replay {
-    turn_order: Vec<Player>,
-    moves: Vec<ConcreteMove>,
+    pub turn_order: Vec<Player>,
+    pub moves: Vec<ConcreteMove>,
 }
 
 impl Replay {
-    pub fn replay(&self) {
+    pub fn from_path(input: PathBuf) -> MessageResult<Self> {
+        let file = File::open(input).or(Err("failed to open file"))?;
+
+        let mut buf_reader = std::io::BufReader::new(file);
+
+        // Read the JSON content from the file into a string
+        let mut json_string = String::new();
+        buf_reader
+            .read_to_string(&mut json_string)
+            .or(Err("failed to read file"))?;
+
+        // Deserialize the JSON string into a MyStruct object
+        serde_json::from_str(&json_string).or(Err("failed to deserialize file"))
+    }
+    pub fn replay(&self) -> GameResult {
         let n = self.turn_order.len();
         let mut bots: Vec<ReplayBot> = vec![];
         for player in &self.turn_order {
@@ -39,12 +61,11 @@ impl Replay {
             .map(|x| -> Box<dyn Bot> { Box::new(x) })
             .collect();
 
-        Match::play_custom(bots, Box::new(ReplayTileBag::new(bag_data)))
-            .unwrap()
-            .print();
+        Match::play_custom(bots, Box::new(ReplayTileBag::new(bag_data)), None).unwrap()
     }
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct ConcreteMove {
     pub tile_data: TileData,
     pub coord: Coordinate,
@@ -61,6 +82,8 @@ impl Into<MoveRequest> for &ConcreteMove {
         }
     }
 }
+
+#[derive(Eq, PartialEq, Debug)]
 pub struct GameResult {
     pub player_scores: FxHashMap<Player, u32>,
 }
@@ -100,12 +123,13 @@ impl GameResult {
 pub type MessageResult<T> = Result<T, &'static str>;
 
 impl Match {
-    pub fn play(bots: Vec<Box<dyn Bot>>) -> MessageResult<GameResult> {
-        Self::play_custom(bots, Box::new(LegalTileBag::default()))
+    pub fn play(bots: Vec<Box<dyn Bot>>, record: Option<PathBuf>) -> MessageResult<GameResult> {
+        Self::play_custom(bots, Box::new(LegalTileBag::default()), record)
     }
     pub fn play_custom(
         bots: Vec<Box<dyn Bot>>,
         bag: Box<dyn TileBag>,
+        record: Option<PathBuf>,
     ) -> MessageResult<GameResult> {
         let mut players: Vec<Player> = bots
             .iter()
@@ -119,13 +143,35 @@ impl Match {
             player_map.insert(bot.get_own_player().clone(), bot);
         }
 
+        let mut replay_data = Replay::default();
+        replay_data.turn_order = players.clone();
         while state.tilebag.peek().is_ok() {
             for turn in &players {
                 state.tilebag.ensure_legal_draw(&state.board.as_user());
                 let bot = player_map.get_mut(turn).unwrap();
                 let move_request = bot.get_move(&state);
+                if record.is_some() {
+                    if let Ok(tile) = state.tilebag.peek() {
+                        replay_data.moves.push(ConcreteMove {
+                            tile_data: tile.clone(),
+                            coord: move_request.coord.clone(),
+                            rotation: move_request.rotation.clone(),
+                            location: move_request.meeple.clone(),
+                        });
+                    }
+                }
                 state.process_move(move_request)?;
             }
+        }
+        if let Some(path) = record {
+            let file = File::create(path).or(Err("Failed to create replay file"))?;
+            let mut file_writer = std::io::BufWriter::new(file);
+            let json_string =
+                serde_json::to_string(&replay_data).or(Err("Failed to serialize replay"))?;
+
+            file_writer
+                .write(json_string.as_bytes())
+                .or(Err("Failed to write to file"))?;
         }
 
         let mut scores = state.board.as_user().get_standing_points();
@@ -141,5 +187,28 @@ impl Match {
         Ok(GameResult {
             player_scores: scores,
         })
+    }
+}
+#[cfg(test)]
+mod tests {
+
+    use std::assert_eq;
+
+    use crate::bot::RandomBot;
+
+    use super::*;
+
+    #[test]
+    fn replay_works() {
+        let path = PathBuf::from("test_path.replay");
+
+        let bot_w: Box<dyn Bot> = Box::new(RandomBot::new(Player::White));
+        let bot_b: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));
+
+        let result = Match::play(vec![bot_w, bot_b], Some(path.clone())).unwrap();
+
+        let replay = Replay::from_path(path).unwrap();
+        let replay_result = replay.replay();
+        assert_eq!(result, replay_result);
     }
 }

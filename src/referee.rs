@@ -2,6 +2,7 @@ use std::fmt;
 
 use egui::Color32;
 use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     arena::MessageResult,
@@ -224,7 +225,7 @@ impl RefereeState {
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Player {
     White,
     Black,

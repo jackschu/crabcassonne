@@ -6,7 +6,7 @@ use std::{
 };
 
 use crabcassonne::{
-    arena::Match,
+    arena::{Match, Replay},
     bot::{Bot, HumanBot, RandomBot},
     referee::Player,
     render::{InteractionMessage, MyApp, RenderMessage},
@@ -45,12 +45,14 @@ fn main() {
     match cli.command {
         Commands::Play { players, output } => demo_p(players, output),
         Commands::Replay { input } => {
-            println!("Not implemented but would read file {input:?}")
+            let replay = Replay::from_path(input).unwrap();
+            let result = replay.replay();
+            result.print();
         }
     }
 }
 
-fn demo_p(player_ct: u8, _record: Option<PathBuf>) {
+fn demo_p(player_ct: u8, record: Option<PathBuf>) {
     let (input_sender, input_receiver) = channel::<RenderMessage>();
     let (sender, receiver) = channel::<InteractionMessage>();
 
@@ -72,7 +74,7 @@ fn demo_p(player_ct: u8, _record: Option<PathBuf>) {
             Box::new(RandomBot::new(Player::Black))
         };
 
-        Match::play(vec![bot_w, bot_b]).unwrap().print();
+        Match::play(vec![bot_w, bot_b], record).unwrap().print();
     });
 
     if player_ct > 0 {
@@ -107,7 +109,7 @@ fn demo_threaded() {
             for _i in 0..(n_t) {
                 let bot_w: Box<dyn Bot> = Box::new(RandomBot::new(Player::White));
                 let bot_b: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));
-                let result = Match::play(vec![bot_w, bot_b]).unwrap();
+                let result = Match::play(vec![bot_w, bot_b], None).unwrap();
                 let winners = result.get_winners();
                 if winners.len() > 1 {
                     draw += 1;

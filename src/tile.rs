@@ -1,5 +1,6 @@
 use egui::Color32;
 use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
 
 use crate::{arena::MessageResult, referee::Player};
 
@@ -14,7 +15,7 @@ pub struct TileDataBuilder {
     pub bottom: MiniTile,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TileData {
     pub has_emblem: bool,
     top: MiniTile,
@@ -24,7 +25,9 @@ pub struct TileData {
     right: MiniTile,
     bottom: MiniTile,
 
+    #[serde(skip)]
     pub meeple_locations: FxHashMap<TileClickTarget, Player>,
+    #[serde(skip)]
     pub rotation: Rotation,
 }
 
@@ -35,8 +38,9 @@ pub static CARDINALS: [TileClickTarget; 4] = [
     TileClickTarget::Bottom,
 ];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub enum Rotation {
+    #[default]
     None,
     Left,
     Right,
@@ -211,7 +215,7 @@ impl TileData {
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum TileClickTarget {
     Top,
     Left,
@@ -233,7 +237,7 @@ impl TileClickTarget {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum MiniTile {
     #[default]
     Grass,

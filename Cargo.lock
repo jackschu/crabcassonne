@@ -746,6 +746,8 @@ dependencies = [
  "once_cell",
  "rand",
  "rustc-hash",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
