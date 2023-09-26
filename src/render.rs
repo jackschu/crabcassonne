@@ -23,8 +23,13 @@ pub enum InteractionMessage {
     Print(String),
     Click(ClickMessage),
     CancelMeeple,
+    NextFrame,
+    PreviousFrame,
+    FirstFrame,
+    LastFrame,
 }
 
+#[derive(Clone)]
 pub struct RenderState {
     pub preview_tile: Option<TileData>,
     pub board: ConcreteBoard,
@@ -136,6 +141,22 @@ impl eframe::App for MyApp {
                                         preview_tile.rotate_right()
                                     }
                                 }
+                                egui::Key::End => self
+                                    .output_channel
+                                    .send(InteractionMessage::LastFrame)
+                                    .unwrap(),
+                                egui::Key::Home => self
+                                    .output_channel
+                                    .send(InteractionMessage::FirstFrame)
+                                    .unwrap(),
+                                egui::Key::ArrowLeft => self
+                                    .output_channel
+                                    .send(InteractionMessage::PreviousFrame)
+                                    .unwrap(),
+                                egui::Key::ArrowRight => self
+                                    .output_channel
+                                    .send(InteractionMessage::NextFrame)
+                                    .unwrap(),
                                 egui::Key::X => self
                                     .output_channel
                                     .send(InteractionMessage::CancelMeeple)

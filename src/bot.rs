@@ -86,6 +86,10 @@ impl Bot for HumanBot {
                 ))
                 .unwrap();
             match self.receiver.lock().unwrap().recv().unwrap() {
+                InteractionMessage::NextFrame
+                | InteractionMessage::PreviousFrame
+                | InteractionMessage::FirstFrame
+                | InteractionMessage::LastFrame => {}
                 InteractionMessage::Print(message) => {
                     println!("recv {}", message);
                 }

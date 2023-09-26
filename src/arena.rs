@@ -1,8 +1,11 @@
+use std::{cmp::max, cmp::min};
 use std::{
     fs::File,
     io::{Read, Write},
     path::PathBuf,
     println,
+    sync::mpsc::channel,
+    thread,
 };
 
 use itertools::Itertools;
@@ -12,6 +15,7 @@ use crate::{
     board::{BoardData, Coordinate},
     bot::{Bot, MoveRequest, ReplayBot},
     referee::{Player, RefereeState},
+    render::{InteractionMessage, MyApp, RenderMessage, RenderState},
     tile::{Rotation, TileClickTarget, TileData},
     tilebag::{LegalTileBag, ReplayTileBag, TileBag},
 };
@@ -41,7 +45,8 @@ impl Replay {
         // Deserialize the JSON string into a MyStruct object
         serde_json::from_str(&json_string).or(Err("failed to deserialize file"))
     }
-    pub fn replay(&self) -> GameResult {
+
+    pub fn replay(&self, should_render: bool) -> GameResult {
         let n = self.turn_order.len();
         let mut bots: Vec<ReplayBot> = vec![];
         for player in &self.turn_order {
@@ -61,7 +66,58 @@ impl Replay {
             .map(|x| -> Box<dyn Bot> { Box::new(x) })
             .collect();
 
-        Match::play_custom(bots, Box::new(ReplayTileBag::new(bag_data)), None).unwrap()
+        if !should_render {
+            return Match::play_custom(bots, Box::new(ReplayTileBag::new(bag_data)), None, None)
+                .unwrap();
+        }
+        let mut frames: Vec<RenderState> = vec![];
+        let out = Match::play_custom(
+            bots,
+            Box::new(ReplayTileBag::new(bag_data)),
+            None,
+            Some(&mut frames),
+        )
+        .unwrap();
+
+        let (input_sender, input_receiver) = channel::<RenderMessage>();
+        let (sender, receiver) = channel::<InteractionMessage>();
+
+        let mut frame_idx: isize = 0;
+        let handle = thread::spawn(move || loop {
+            input_sender
+                .send(RenderMessage::RefereeSync(
+                    frames[frame_idx as usize].clone(),
+                ))
+                .unwrap();
+            match receiver.recv().unwrap() {
+                InteractionMessage::NextFrame => {
+                    frame_idx = min(frame_idx + 1, frames.len() as isize - 1);
+                }
+                InteractionMessage::PreviousFrame => {
+                    frame_idx = max(frame_idx - 1, 0);
+                }
+                InteractionMessage::LastFrame => {
+                    frame_idx = frames.len() as isize - 1;
+                }
+                InteractionMessage::FirstFrame => {
+                    frame_idx = 0;
+                }
+                _ => {}
+            }
+        });
+        let options = eframe::NativeOptions {
+            initial_window_size: Some(egui::vec2(1600.0, 900.0)),
+            ..Default::default()
+        };
+
+        eframe::run_native(
+            "Crabcassonne",
+            options,
+            Box::new(|_cc| Box::new(MyApp::create(sender, input_receiver))),
+        )
+        .unwrap();
+        handle.join().unwrap();
+        out
     }
 }
 
@@ -124,12 +180,13 @@ pub type MessageResult<T> = Result<T, &'static str>;
 
 impl Match {
     pub fn play(bots: Vec<Box<dyn Bot>>, record: Option<PathBuf>) -> MessageResult<GameResult> {
-        Self::play_custom(bots, Box::new(LegalTileBag::default()), record)
+        Self::play_custom(bots, Box::new(LegalTileBag::default()), record, None)
     }
     pub fn play_custom(
         bots: Vec<Box<dyn Bot>>,
         bag: Box<dyn TileBag>,
         record: Option<PathBuf>,
+        replay_frames: Option<&mut Vec<RenderState>>,
     ) -> MessageResult<GameResult> {
         let mut players: Vec<Player> = bots
             .iter()
@@ -161,6 +218,9 @@ impl Match {
                     }
                 }
                 state.process_move(move_request)?;
+                if let Some(&mut ref mut frames) = replay_frames {
+                    frames.push(state.clone_into());
+                }
             }
         }
         if let Some(path) = record {
@@ -208,7 +268,7 @@ mod tests {
         let result = Match::play(vec![bot_w, bot_b], Some(path.clone())).unwrap();
 
         let replay = Replay::from_path(path).unwrap();
-        let replay_result = replay.replay();
+        let replay_result = replay.replay(false);
         assert_eq!(result, replay_result);
     }
 }

@@ -36,6 +36,8 @@ enum Commands {
     Replay {
         #[arg(short, long, value_name = "FILE")]
         input: PathBuf,
+        #[arg(short, long, default_value_t = false)]
+        headless: bool,
     },
 }
 
@@ -44,9 +46,9 @@ fn main() {
     let cli = Cli::parse();
     match cli.command {
         Commands::Play { players, output } => demo_p(players, output),
-        Commands::Replay { input } => {
+        Commands::Replay { input, headless } => {
             let replay = Replay::from_path(input).unwrap();
-            let result = replay.replay();
+            let result = replay.replay(!headless);
             result.print();
         }
     }
