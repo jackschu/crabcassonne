@@ -78,7 +78,11 @@ impl Replay {
             Some(&mut frames),
         )
         .unwrap();
+        self.replay_ui(frames);
+        out
+    }
 
+    fn replay_ui(&self, frames: Vec<RenderState>) {
         let (input_sender, input_receiver) = channel::<RenderMessage>();
         let (sender, receiver) = channel::<InteractionMessage>();
 
@@ -117,7 +121,6 @@ impl Replay {
         )
         .unwrap();
         handle.join().unwrap();
-        out
     }
 }
 
