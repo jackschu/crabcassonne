@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::{cmp::max, cmp::min};
 use std::{
     fs::File,
@@ -51,13 +52,11 @@ impl Replay {
             bots.push(ReplayBot::unitialized(player.clone()))
         }
 
-        let mut i = 0;
         let mut bag_data: Vec<TileData> = vec![];
-        for one_move in &self.moves {
+        for (i, one_move) in self.moves.iter().enumerate() {
             let bot = bots.get_mut(i % n).unwrap();
             bag_data.push(one_move.tile_data.clone());
             bot.add_move(one_move.into());
-            i += 1;
         }
         let bots: Vec<Box<dyn Bot>> = bots
             .into_iter()
@@ -130,12 +129,12 @@ pub struct ConcreteMove {
     pub location: Option<TileClickTarget>,
 }
 
-impl Into<MoveRequest> for &ConcreteMove {
-    fn into(self) -> MoveRequest {
+impl From<&ConcreteMove> for MoveRequest {
+    fn from(val: &ConcreteMove) -> Self {
         MoveRequest {
-            coord: self.coord.clone(),
-            rotation: self.rotation.clone(),
-            meeple: self.location.clone(),
+            coord: val.coord,
+            rotation: val.rotation.clone(),
+            meeple: val.location.clone(),
         }
     }
 }
@@ -150,13 +149,17 @@ impl GameResult {
         let mut max_score: i32 = -1;
         let mut winners: FxHashSet<Player> = FxHashSet::default();
         for (player, score) in &self.player_scores {
-            if max_score < *score as i32 {
-                max_score = *score as i32;
-                let mut new_winners = FxHashSet::default();
-                new_winners.insert(player.clone());
-                winners = new_winners;
-            } else if max_score == *score as i32 {
-                winners.insert(player.clone());
+            match max_score.cmp(&(*score as i32)) {
+                Ordering::Less => {
+                    max_score = *score as i32;
+                    let mut new_winners = FxHashSet::default();
+                    new_winners.insert(player.clone());
+                    winners = new_winners;
+                }
+                Ordering::Equal => {
+                    winners.insert(player.clone());
+                }
+                Ordering::Greater => {}
             }
         }
         winners
@@ -181,7 +184,7 @@ pub type MessageResult<T> = Result<T, &'static str>;
 
 impl Match {
     pub fn play(bots: Vec<Box<dyn Bot>>, record: Option<PathBuf>) -> MessageResult<GameResult> {
-        Self::play_custom(bots, Box::new(LegalTileBag::default()), record, None)
+        Self::play_custom(bots, Box::<LegalTileBag>::default(), record, None)
     }
     pub fn play_custom(
         bots: Vec<Box<dyn Bot>>,
@@ -201,8 +204,10 @@ impl Match {
             player_map.insert(bot.get_own_player().clone(), bot);
         }
 
-        let mut replay_data = Replay::default();
-        replay_data.turn_order = players.clone();
+        let mut replay_data = Replay {
+            turn_order: players.clone(),
+            ..Default::default()
+        };
         while state.tilebag.peek().is_ok() {
             for turn in &players {
                 state.tilebag.ensure_legal_draw(&state.board.as_user());
@@ -212,7 +217,7 @@ impl Match {
                     if let Ok(tile) = state.tilebag.peek() {
                         replay_data.moves.push(ConcreteMove {
                             tile_data: tile.clone(),
-                            coord: move_request.coord.clone(),
+                            coord: move_request.coord,
                             rotation: move_request.rotation.clone(),
                             location: move_request.meeple.clone(),
                         });
@@ -231,7 +236,7 @@ impl Match {
                 serde_json::to_string(&replay_data).or(Err("Failed to serialize replay"))?;
 
             file_writer
-                .write(json_string.as_bytes())
+                .write_all(json_string.as_bytes())
                 .or(Err("Failed to write to file"))?;
         }
 

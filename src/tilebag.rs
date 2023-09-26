@@ -28,7 +28,7 @@ pub trait TileBag {
         let out = match &self.get_next_idx() {
             NextTileType::FirstTile(tile) => Some(tile.clone()),
             NextTileType::BagTile(idx) => {
-                let idx = idx.clone();
+                let idx = *idx;
                 Some(self.get_data_mut().swap_remove(idx))
             }
             NextTileType::Empty => None,

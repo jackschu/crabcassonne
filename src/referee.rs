@@ -38,7 +38,7 @@ impl Default for RefereeState {
         player_meeples.insert(Player::Black, INITIAL_MEEPLES);
         RefereeState {
             board: ConcreteBoard::default(),
-            tilebag: Box::new(LegalTileBag::default()),
+            tilebag: Box::<LegalTileBag>::default(),
             turn_order: vec![Player::White, Player::Black],
             turn_idx: 0,
             is_placing_meeple: false,
