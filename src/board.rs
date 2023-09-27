@@ -2,6 +2,7 @@ use std::{cmp::max, cmp::min};
 
 use crate::{
     arena::MessageResult,
+    bots::bot::MoveRequest,
     referee::Player,
     tile::{MiniTile, Rotation, TileClickTarget, TileData, CARDINALS},
 };
@@ -500,34 +501,85 @@ impl BoardUser<'_> {
         false
     }
 
-    pub fn get_legal_moves(&self, tile: &TileData) -> Vec<(Coordinate, Rotation)> {
-        let mut coords = self.get_legal_tiles();
-        if self.board.tiles_present().count() == 0 {
-            coords.insert((0, 0));
+    pub fn get_legal_moves(&self, tile: &TileData, can_place: bool) -> Vec<MoveRequest> {
+        let meeple_dests = [
+            TileClickTarget::Top,
+            TileClickTarget::Bottom,
+            TileClickTarget::Left,
+            TileClickTarget::Right,
+            TileClickTarget::Center,
+        ];
+
+        let mut seen: FxHashSet<Coordinate> = FxHashSet::default();
+        let mut out: Vec<MoveRequest> = Vec::default();
+        for (coord, rotation) in self.get_legal_placements_iter(tile) {
+            if !seen.insert(coord) {
+                continue;
+            }
+            let mut tile = tile.clone();
+            tile.rotation = rotation.clone();
+            let board = self.board.with_overlay(coord, &tile);
+
+            if can_place {
+                for dest in &meeple_dests {
+                    if board
+                        .as_user()
+                        .is_legal_meeple(&coord, dest.clone())
+                        .is_ok()
+                    {
+                        {
+                            out.push(MoveRequest {
+                                coord,
+                                rotation: rotation.clone(),
+                                meeple: Some(dest.clone()),
+                            });
+                        }
+                    }
+                }
+            }
+            out.push(MoveRequest {
+                coord,
+                rotation: rotation.clone(),
+                meeple: None,
+            });
         }
-        let mut out: Vec<(Coordinate, Rotation)> = vec![];
-        for coord in coords {
-            for rotation in [
+        out
+    }
+
+    fn get_legal_placements_iter<'a>(
+        &'a self,
+        tile: &'a TileData,
+    ) -> impl Iterator<Item = (Coordinate, Rotation)> + 'a {
+        self.get_legal_tiles_iter().flat_map(move |coord| {
+            [
                 Rotation::None,
                 Rotation::Left,
                 Rotation::Flip,
                 Rotation::Right,
-            ] {
+            ]
+            .iter()
+            .filter_map(move |rotation| {
                 let mut tile = tile.clone();
                 tile.rotation = rotation.clone();
                 if self.is_features_match(&coord, &tile) {
-                    out.push((coord, rotation.clone()))
+                    Some((coord, rotation.clone()))
+                } else {
+                    None
                 }
-            }
-        }
-
-        out
+            })
+        })
     }
 
-    pub fn get_legal_tiles(&self) -> FxHashSet<Coordinate> {
+    fn get_legal_tiles_iter(&self) -> impl Iterator<Item = Coordinate> + '_ {
+        let is_empty = self.board.tiles_present().count() == 0;
         self.board
             .tiles_present()
-            .flat_map(|tile| {
+            .chain(if is_empty {
+                itertools::Either::Right(std::iter::once::<Coordinate>((0, 0)))
+            } else {
+                itertools::Either::Left(std::iter::empty::<Coordinate>())
+            })
+            .flat_map(move |tile| {
                 DELTAS.iter().filter_map(move |delta| {
                     let coord = (delta.0 + tile.0, delta.1 + tile.1);
                     if self.contains_coord(&coord) {
@@ -537,7 +589,9 @@ impl BoardUser<'_> {
                     }
                 })
             })
-            .collect()
+    }
+    pub fn get_legal_tiles(&self) -> FxHashSet<Coordinate> {
+        self.get_legal_tiles_iter().collect()
     }
 
     fn contains_coord(&self, coord: &Coordinate) -> bool {

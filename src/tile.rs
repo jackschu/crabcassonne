@@ -38,7 +38,7 @@ pub static CARDINALS: [TileClickTarget; 4] = [
     TileClickTarget::Bottom,
 ];
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Hash, PartialEq, Eq)]
 pub enum Rotation {
     #[default]
     None,

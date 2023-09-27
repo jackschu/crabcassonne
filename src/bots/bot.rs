@@ -9,7 +9,7 @@ pub trait Bot {
     fn get_move(&mut self, state: &RefereeState) -> MoveRequest;
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct MoveRequest {
     pub coord: Coordinate,
     pub rotation: Rotation,
