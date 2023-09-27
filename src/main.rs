@@ -7,7 +7,7 @@ use std::{
 
 use crabcassonne::{
     arena::{Match, Replay},
-    bots::{bot::Bot, human_bot::HumanBot, random_bot::RandomBot},
+    bots::{bot::Bot, greedy_bot::GreedyBot, human_bot::HumanBot, random_bot::RandomBot},
     referee::Player,
     render::{InteractionMessage, MyApp, RenderMessage},
 };
@@ -39,6 +39,8 @@ enum Commands {
         #[arg(short, long, default_value_t = false)]
         headless: bool,
     },
+    /// Evaluate bots
+    Eval,
 }
 
 fn main() {
@@ -51,6 +53,7 @@ fn main() {
             let result = replay.replay(!headless);
             result.print();
         }
+        Commands::Eval => demo_threaded(),
     }
 }
 
@@ -95,9 +98,8 @@ fn demo_p(player_ct: u8, record: Option<PathBuf>) {
     handle.join().unwrap();
 }
 
-#[allow(dead_code)]
 fn demo_threaded() {
-    let desired_n = 100_000;
+    let desired_n = 10_000;
     let t = 8;
     let n_t = desired_n / t;
     let n = n_t * t;
@@ -110,7 +112,7 @@ fn demo_threaded() {
             let mut draw = 0;
             for _i in 0..(n_t) {
                 let bot_w: Box<dyn Bot> = Box::new(RandomBot::new(Player::White));
-                let bot_b: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));
+                let bot_b: Box<dyn Bot> = Box::new(GreedyBot::new(Player::Black));
                 let result = Match::play(vec![bot_w, bot_b], None).unwrap();
                 let winners = result.get_winners();
                 if winners.len() > 1 {

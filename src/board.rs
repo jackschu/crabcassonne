@@ -401,7 +401,7 @@ impl BoardUser<'_> {
     }
 
     #[allow(dead_code)]
-    fn get_completion_points(
+    pub fn get_completion_points(
         &self,
         coord: &Coordinate,
         tile: &TileData,
