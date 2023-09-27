@@ -1,13 +1,6 @@
-use std::{
-    collections::VecDeque,
-};
+use std::collections::VecDeque;
 
-
-
-
-use crate::{
-    referee::{Player, RefereeState},
-};
+use crate::referee::{Player, RefereeState};
 
 use super::bot::{Bot, MoveRequest};
 

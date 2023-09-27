@@ -1,10 +1,5 @@
-
-
-
-
-
 use crate::{
-    board::{Coordinate},
+    board::Coordinate,
     referee::{Player, RefereeState},
     tile::{Rotation, TileClickTarget},
 };

@@ -6,9 +6,6 @@ use std::{
     },
 };
 
-
-
-
 use crate::{
     arena::MessageResult,
     board::{BoardData, Coordinate},

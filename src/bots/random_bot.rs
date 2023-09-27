@@ -1,12 +1,10 @@
-
-
 use rand::rngs::ThreadRng;
 use rand::Rng;
 
 use crate::{
-    board::{BoardData},
+    board::BoardData,
     referee::{Player, RefereeState},
-    tile::{TileClickTarget},
+    tile::TileClickTarget,
 };
 
 use super::bot::{Bot, MoveRequest};
