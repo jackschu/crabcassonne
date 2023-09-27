@@ -70,13 +70,13 @@ fn demo_p(player_ct: u8, record: Option<PathBuf>) {
                 input_sender.clone(),
             ))
         } else {
-            Box::new(RandomBot::new(Player::White))
+            Box::new(GreedyBot::new(Player::White))
         };
 
         let bot_b: Box<dyn Bot> = if player_ct > 1 {
             Box::new(HumanBot::new(Player::Black, receiver_mutex, input_sender))
         } else {
-            Box::new(RandomBot::new(Player::Black))
+            Box::new(GreedyBot::new(Player::Black))
         };
 
         Match::play(vec![bot_w, bot_b], record).unwrap().print();
