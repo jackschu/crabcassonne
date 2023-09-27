@@ -165,7 +165,7 @@ impl GameResult {
         winners
     }
 
-    pub fn print(&self) {
+    pub fn print(&self, names: FxHashMap<Player, String>) {
         let winners = self.get_winners();
         println!("Winners {winners:?}");
         let scores: Vec<(Player, u32)> = self
@@ -175,7 +175,9 @@ impl GameResult {
             .sorted_by(|a, b| Ord::cmp(&b.1, &a.1))
             .collect();
         for (player, score) in scores {
-            println!("Player: {player} Score: {score}");
+            let default_name = &"unknown".to_owned();
+            let name = names.get(&player).unwrap_or(default_name);
+            println!("Player: {player} ({name}) Score: {score}");
         }
     }
 }

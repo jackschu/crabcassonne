@@ -25,6 +25,10 @@ impl GreedyBot {
 }
 
 impl Bot for GreedyBot {
+    fn get_name(&self) -> &str {
+        "greedy bot"
+    }
+
     fn get_own_player(&self) -> &Player {
         &self.own_player
     }

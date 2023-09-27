@@ -6,6 +6,7 @@ use crate::{
 
 pub trait Bot {
     fn get_own_player(&self) -> &Player;
+    fn get_name(&self) -> &str;
     fn get_move(&mut self, state: &RefereeState) -> MoveRequest;
 }
 

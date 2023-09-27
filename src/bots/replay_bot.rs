@@ -22,6 +22,9 @@ impl ReplayBot {
 }
 
 impl Bot for ReplayBot {
+    fn get_name(&self) -> &str {
+        "replay bot"
+    }
     fn get_own_player(&self) -> &Player {
         &self.own_player
     }

@@ -64,6 +64,9 @@ impl HumanBot {
 }
 
 impl Bot for HumanBot {
+    fn get_name(&self) -> &str {
+        "human"
+    }
     fn get_own_player(&self) -> &Player {
         &self.own_player
     }

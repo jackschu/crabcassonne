@@ -13,6 +13,7 @@ use crabcassonne::{
 };
 
 use clap::{Parser, Subcommand};
+use rustc_hash::FxHashMap;
 
 #[derive(Parser)]
 #[command(version)]
@@ -51,7 +52,7 @@ fn main() {
         Commands::Replay { input, headless } => {
             let replay = Replay::from_path(input).unwrap();
             let result = replay.replay(!headless);
-            result.print();
+            result.print(FxHashMap::default());
         }
         Commands::Eval => demo_threaded(),
     }
@@ -76,10 +77,16 @@ fn demo_p(player_ct: u8, record: Option<PathBuf>) {
         let bot_b: Box<dyn Bot> = if player_ct > 1 {
             Box::new(HumanBot::new(Player::Black, receiver_mutex, input_sender))
         } else {
-            Box::new(GreedyBot::new(Player::Black))
+            Box::new(RandomBot::new(Player::Black))
         };
 
-        Match::play(vec![bot_w, bot_b], record).unwrap().print();
+        let mut names = FxHashMap::default();
+        names.insert(Player::Black, bot_b.get_name().to_owned());
+        names.insert(Player::White, bot_w.get_name().to_owned());
+
+        Match::play(vec![bot_w, bot_b], record)
+            .unwrap()
+            .print(names);
     });
 
     if player_ct > 0 {
@@ -105,14 +112,16 @@ fn demo_threaded() {
     let n = n_t * t;
     let mut threads: Vec<JoinHandle<(u32, u32, u32)>> = vec![];
 
+    let get_white = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::White)) };
+    let get_black = || -> Box<dyn Bot> { Box::new(GreedyBot::new(Player::Black)) };
     for _i in 0..t {
         let x = thread::spawn(move || {
             let mut white_win = 0;
             let mut black_win = 0;
             let mut draw = 0;
             for _i in 0..(n_t) {
-                let bot_w: Box<dyn Bot> = Box::new(RandomBot::new(Player::White));
-                let bot_b: Box<dyn Bot> = Box::new(GreedyBot::new(Player::Black));
+                let bot_w = get_white();
+                let bot_b = get_black();
                 let result = Match::play(vec![bot_w, bot_b], None).unwrap();
                 let winners = result.get_winners();
                 if winners.len() > 1 {
@@ -140,9 +149,11 @@ fn demo_threaded() {
     }
 
     println!(
-        "White winrate {:.2}, Draw-rate {:.2}, Black winrate {:.2} (n = {n})",
+        "White ({}) winrate {:.2}, Draw-rate {:.2}, Black ({}) winrate {:.2} (n = {n})",
+        get_white().get_name(),
         white_win as f64 / n as f64,
         draw as f64 / n as f64,
+        get_black().get_name(),
         black_win as f64 / n as f64,
     );
 }

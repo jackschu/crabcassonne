@@ -27,6 +27,10 @@ impl Bot for RandomBot {
         &self.own_player
     }
 
+    fn get_name(&self) -> &str {
+        "random bot"
+    }
+
     fn get_move(&mut self, state: &RefereeState) -> MoveRequest {
         let board = &state.board;
 
