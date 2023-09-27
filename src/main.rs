@@ -7,7 +7,7 @@ use std::{
 
 use crabcassonne::{
     arena::{Match, Replay},
-    bot::{Bot, HumanBot, RandomBot},
+    bots::{bot::Bot, human_bot::HumanBot, random_bot::RandomBot},
     referee::Player,
     render::{InteractionMessage, MyApp, RenderMessage},
 };

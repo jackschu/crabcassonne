@@ -1,6 +1,6 @@
 pub mod arena;
 pub mod board;
-pub mod bot;
+pub mod bots;
 pub mod referee;
 pub mod render;
 pub mod render_tile;

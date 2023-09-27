@@ -8,7 +8,7 @@ use crate::{
     arena::MessageResult,
     board::BoardData,
     board::{BoardUser, ConcreteBoard, Coordinate},
-    bot::MoveRequest,
+    bots::bot::MoveRequest,
     render::RenderState,
     tile::{Rotation, TileClickTarget, TileData},
     tilebag::{LegalTileBag, TileBag},

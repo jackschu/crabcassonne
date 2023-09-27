@@ -14,7 +14,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
     board::{BoardData, Coordinate},
-    bot::{Bot, MoveRequest, ReplayBot},
+    bots::{bot::Bot, bot::MoveRequest, replay_bot::ReplayBot},
     referee::{Player, RefereeState},
     render::{InteractionMessage, MyApp, RenderMessage, RenderState},
     tile::{Rotation, TileClickTarget, TileData},
@@ -260,7 +260,7 @@ mod tests {
 
     use std::assert_eq;
 
-    use crate::bot::RandomBot;
+    use crate::bots::random_bot::RandomBot;
 
     use super::*;
 
