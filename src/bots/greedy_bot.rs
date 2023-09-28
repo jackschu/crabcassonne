@@ -46,6 +46,9 @@ impl Bot for GreedyBot {
         let mut candidate: Option<(MoveRequest, i32)> = None;
         for move_request in moves {
             let mut tile = tile.clone();
+            if let Some(location) = &move_request.meeple {
+                tile.place_meeple(location, self.get_own_player()).unwrap();
+            }
             tile.rotation = move_request.rotation.clone();
             let points = board_user.get_completion_points(&move_request.coord, &tile);
             let mut total: i32 = 0;
@@ -75,5 +78,74 @@ impl Bot for GreedyBot {
             }
         }
         candidate.unwrap().0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use itertools::Itertools;
+
+    use super::*;
+    use crate::{
+        bots::random_bot::RandomBot,
+        tile::{MiniTile, TileData, TileDataBuilder},
+        tilebag::ReplayTileBag,
+    };
+    #[test]
+    fn is_greedy() {
+        let bot_w: Box<dyn Bot> = Box::new(RandomBot::new(Player::White));
+        let bot_b: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));
+
+        let bots = vec![bot_w, bot_b];
+        let mut players: Vec<Player> = bots
+            .iter()
+            .map(|bot| bot.get_own_player().clone())
+            .unique()
+            .collect();
+        players.sort();
+        let first: TileData = TileDataBuilder {
+            top: MiniTile::City,
+            left: MiniTile::Road,
+            center: MiniTile::Road,
+            right: MiniTile::Road,
+            ..Default::default()
+        }
+        .into();
+        let second: TileData = TileDataBuilder {
+            right: MiniTile::Road,
+            ..Default::default()
+        }
+        .into();
+        let third: TileData = TileDataBuilder {
+            left: MiniTile::Road,
+            center: MiniTile::Junction,
+            ..Default::default()
+        }
+        .into();
+        let bag = Box::new(ReplayTileBag::new(vec![first, second, third]));
+
+        let mut state = RefereeState::from_players(players.clone(), bag);
+        state
+            .process_move(MoveRequest {
+                coord: (0, 0),
+                ..Default::default()
+            })
+            .unwrap();
+        state
+            .process_move(MoveRequest {
+                coord: (0, -1),
+                ..Default::default()
+            })
+            .unwrap();
+        let mut bot_b: Box<dyn Bot> = Box::new(GreedyBot::new(Player::Black));
+        for _i in 0..10 {
+            let move_request = bot_b.get_move(&state);
+            let expected = MoveRequest {
+                coord: (0, 1),
+                rotation: crate::tile::Rotation::None,
+                meeple: Some(crate::tile::TileClickTarget::Left),
+            };
+            assert_eq!(move_request, expected);
+        }
     }
 }
