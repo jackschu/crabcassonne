@@ -49,14 +49,14 @@ pub enum Rotation {
 
 impl Rotation {
     fn rotate_impl(&self, target: &TileClickTarget, is_counter: bool) -> TileClickTarget {
-        let rot_idx: isize = match &self {
+        let rot_idx: i8 = match &self {
             Rotation::None => 0,
             Rotation::Right => 1,
             Rotation::Flip => 2,
             Rotation::Left => 3,
         };
 
-        let target_idx: isize = match target {
+        let target_idx: i8 = match target {
             TileClickTarget::Top => 0,
             TileClickTarget::Left => 1,
             TileClickTarget::Bottom => 2,
@@ -64,19 +64,17 @@ impl Rotation {
             TileClickTarget::Center => return TileClickTarget::Center,
         };
 
-        let arr = [
-            TileClickTarget::Top,
-            TileClickTarget::Left,
-            TileClickTarget::Bottom,
-            TileClickTarget::Right,
-        ];
-
-        if is_counter {
-            let idx: usize = ((target_idx - rot_idx + 4) % 4).try_into().unwrap();
-            arr[idx].clone()
+        let idx = if is_counter {
+            (target_idx - rot_idx + 4) % 4
         } else {
-            let idx: usize = ((target_idx + rot_idx) % 4).try_into().unwrap();
-            arr[idx].clone()
+            (target_idx + rot_idx) % 4
+        };
+        match idx {
+            0 => TileClickTarget::Top,
+            1 => TileClickTarget::Left,
+            2 => TileClickTarget::Bottom,
+            3 => TileClickTarget::Right,
+            _ => unreachable!(),
         }
     }
     pub fn rotate(&self, target: &TileClickTarget) -> TileClickTarget {
