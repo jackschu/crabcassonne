@@ -37,7 +37,7 @@ enum Commands {
     Replay {
         #[arg(short, long, value_name = "REPLAY_FILE")]
         input: PathBuf,
-        #[arg(short, long, default_value_t = false)]
+        #[arg(long, default_value_t = false)]
         headless: bool,
     },
     /// Evaluate bots

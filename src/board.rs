@@ -1,4 +1,4 @@
-use std::{cmp::max, cmp::min};
+use std::{cmp::max, cmp::min, unreachable};
 
 use crate::{
     arena::MessageResult,
@@ -262,7 +262,7 @@ impl BoardUser<'_> {
                     })
                     .try_for_each(|elem| -> Result<(), T> {
                         if visited.insert(elem.clone()) {
-                            if visited.insert((coord, direction.clone()).clone()) {
+                            if visited.insert((coord, direction.clone())) {
                                 if let Some(criteria) = early_exit {
                                     if let Some(out) = criteria(tile) {
                                         return Err(out);
@@ -307,8 +307,7 @@ impl BoardUser<'_> {
         let result = self.traverse_connecting_impl::<()>(initial_coord, direction, None, true)?;
         match result {
             TraversalResult::FinalExit | TraversalResult::EarlyExit(_) => {
-                assert!(false);
-                None
+                unreachable!("Passed no exit func and expected result from traverse impl")
             }
             TraversalResult::FeatureResult(out) => Some(out),
         }
@@ -518,14 +517,13 @@ impl BoardUser<'_> {
                 let result = self
                     .traverse_connecting_impl::<()>(coord, target, Some(early_exit), false)
                     .ok_or("Initial tile invald")?;
-                return match result {
+                match result {
                     TraversalResult::EarlyExit(_) => Err("Illegal meeple: Feature is non empty"),
                     TraversalResult::FinalExit => Ok(()),
                     TraversalResult::FeatureResult(_) => {
-                        assert!(false);
-                        Err("I misunderstood traverse connecting impl")
+                        unreachable!("Requested no result from traverse impl")
                     }
-                };
+                }
             }
             MiniTile::Grass | MiniTile::Junction => Err("Illegal meeple: Non scoring feature"),
             MiniTile::Monastery => {

@@ -1,6 +1,6 @@
 use crabcassonne::{
     arena::{random_match, Match},
-    bots::{bot::Bot, greedy_bot::GreedyBot, random_bot::RandomBot},
+    bots::{bot::Bot, greedy_bot::GreedyBot},
     referee::Player,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
