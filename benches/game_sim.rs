@@ -14,7 +14,7 @@ fn greedy_match(n: u64) {
     }
 }
 
-fn random_match(n: u64) {
+pub fn random_match(n: u64) {
     for _i in 0..n {
         let bot_w: Box<dyn Bot> = Box::new(RandomBot::new(Player::White));
         let bot_b: Box<dyn Bot> = Box::new(RandomBot::new(Player::Black));

@@ -6,7 +6,7 @@ use std::{
 };
 
 use crabcassonne::{
-    arena::{Match, Replay},
+    arena::{random_match, Match, Replay},
     bots::{bot::Bot, greedy_bot::GreedyBot, human_bot::HumanBot, random_bot::RandomBot},
     referee::Player,
     render::{InteractionMessage, MyApp, RenderMessage},
@@ -41,7 +41,18 @@ enum Commands {
         headless: bool,
     },
     /// Evaluate bots
-    Eval,
+    Eval {
+        #[command(subcommand)]
+        demo: Demo,
+    },
+}
+
+#[derive(Subcommand)]
+enum Demo {
+    /// [Benchmark] pits bots against eachother in multithreaded matches
+    Threaded,
+    /// [Benchmark] pits random-move bots against eachother in a single thread
+    Random,
 }
 
 fn main() {
@@ -54,7 +65,10 @@ fn main() {
             let result = replay.replay(!headless);
             result.print(FxHashMap::default());
         }
-        Commands::Eval => demo_threaded(),
+        Commands::Eval { demo } => match demo {
+            Demo::Threaded => demo_threaded(),
+            Demo::Random => random_match(1_000),
+        },
     }
 }
 
