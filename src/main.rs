@@ -67,7 +67,7 @@ fn main() {
         }
         Commands::Eval { demo } => match demo {
             Demo::Threaded => demo_threaded(),
-            Demo::Random => random_match(1_000),
+            Demo::Random => random_match(10_000),
         },
     }
 }

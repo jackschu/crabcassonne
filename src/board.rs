@@ -208,16 +208,23 @@ pub trait BoardData {
 pub struct BoardUser<'a> {
     pub board: Box<&'a dyn BoardData>,
 }
+enum TraversalResult<'a, T> {
+    FinalExit,
+    EarlyExit(T),
+    FeatureResult(FeatureResult<'a>),
+}
 impl BoardUser<'_> {
     pub fn tiles_placed(&self) -> u32 {
         self.board.tiles_present().count() as u32
     }
 
-    pub fn get_connecting_feature_results(
+    fn traverse_connecting_impl<T>(
         &self,
         initial_coord: &Coordinate,
         direction: TileClickTarget,
-    ) -> Option<FeatureResult> {
+        early_exit: Option<fn(&TileData) -> Option<T>>,
+        should_build_result: bool,
+    ) -> Option<TraversalResult<'_, T>> {
         let initial_tile = self.board.at(initial_coord)?;
         let initial_feature = initial_tile.at(&direction);
         if initial_feature != &MiniTile::Road && initial_feature != &MiniTile::City {
@@ -226,14 +233,26 @@ impl BoardUser<'_> {
         let mut complete = true;
         let mut queue = vec![(*initial_coord, direction.clone())];
         let mut visited = FxHashSet::default();
+        if let Some(criteria) = early_exit {
+            if let Some(out) = criteria(initial_tile) {
+                return Some(TraversalResult::EarlyExit(out));
+            }
+        }
+
         visited.insert((*initial_coord, direction.clone()));
         while let Some((coord, direction)) = queue.pop() {
             if let Some(tile) = self.board.at(&coord) {
                 let directions = tile.get_exits(&direction);
                 for direction in &directions {
-                    visited.insert((coord, direction.clone()).clone());
+                    if visited.insert((coord, direction.clone()).clone()) {
+                        if let Some(criteria) = early_exit {
+                            if let Some(out) = criteria(tile) {
+                                return Some(TraversalResult::EarlyExit(out));
+                            }
+                        }
+                    }
                 }
-                directions
+                let early_err = directions
                     .iter()
                     .map(|direction| {
                         (
@@ -241,29 +260,58 @@ impl BoardUser<'_> {
                             COUPLINGS_MAP.get(direction).unwrap().clone(),
                         )
                     })
-                    .for_each(|elem| {
+                    .try_for_each(|elem| -> Result<(), T> {
                         if visited.insert(elem.clone()) {
+                            if visited.insert((coord, direction.clone()).clone()) {
+                                if let Some(criteria) = early_exit {
+                                    if let Some(out) = criteria(tile) {
+                                        return Err(out);
+                                    }
+                                }
+                            }
                             queue.push(elem);
                         }
+                        Ok(())
                     });
+                if let Err(out) = early_err {
+                    return Some(TraversalResult::EarlyExit(out));
+                }
             } else {
                 complete = false;
             }
         }
 
+        if !(should_build_result) {
+            return Some(TraversalResult::FinalExit);
+        }
         let keys: FxHashSet<TileClickTarget> = visited
             .iter()
             .filter(|(result_tile, _direction)| initial_coord == result_tile)
             .map(|(_, direction)| direction.clone())
             .collect();
-        Some(FeatureResult {
+        Some(TraversalResult::FeatureResult(FeatureResult {
             board: self.board.clone(),
             originators: keys,
             originator_coord: *initial_coord,
             completed: complete,
             feature: initial_feature.clone(),
             visited,
-        })
+        }))
+    }
+
+    pub fn get_connecting_feature_results(
+        &self,
+        initial_coord: &Coordinate,
+        direction: TileClickTarget,
+    ) -> Option<FeatureResult> {
+        let result = self.traverse_connecting_impl::<()>(initial_coord, direction, None, true)?;
+        match result {
+            TraversalResult::FinalExit | TraversalResult::EarlyExit(_) => {
+                assert!(false);
+                None
+            }
+            TraversalResult::FeatureResult(out) => Some(out),
+        }
     }
 
     pub fn get_standing_points(&self) -> FxHashMap<Player, u32> {
@@ -459,13 +507,25 @@ impl BoardUser<'_> {
                 if target == TileClickTarget::Center {
                     return Err("Cant place meeple on center for non monestary");
                 }
-                let feature_result = self.get_connecting_feature_results(coord, target)
-                    .ok_or("Invariant violation in connecting feature result, likely called on nonconnecting feature")?;
-                if !feature_result.visited.is_empty() && feature_result.get_meeples().is_empty() {
-                    Ok(())
-                } else {
-                    Err("Illegal meeple: Feature is non empty")
-                }
+                let early_exit = |tile: &TileData| -> Option<()> {
+                    if tile.get_meeple_locations().is_empty() {
+                        None
+                    } else {
+                        Some(())
+                    }
+                };
+
+                let result = self
+                    .traverse_connecting_impl::<()>(coord, target, Some(early_exit), false)
+                    .ok_or("Initial tile invald")?;
+                return match result {
+                    TraversalResult::EarlyExit(_) => Err("Illegal meeple: Feature is non empty"),
+                    TraversalResult::FinalExit => Ok(()),
+                    TraversalResult::FeatureResult(_) => {
+                        assert!(false);
+                        Err("I misunderstood traverse connecting impl")
+                    }
+                };
             }
             MiniTile::Grass | MiniTile::Junction => Err("Illegal meeple: Non scoring feature"),
             MiniTile::Monastery => {
