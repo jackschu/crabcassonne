@@ -50,9 +50,15 @@ enum Commands {
 #[derive(Subcommand)]
 enum Demo {
     /// [Benchmark] pits bots against eachother in multithreaded matches
-    Threaded,
+    Threaded {
+        #[arg(short, long, default_value_t = 10_000)]
+        num_games: u32,
+    },
     /// [Benchmark] pits random-move bots against eachother in a single thread
-    Random,
+    Random {
+        #[arg(short, long, default_value_t = 10_000)]
+        num_games: u32,
+    },
 }
 
 fn main() {
@@ -66,8 +72,8 @@ fn main() {
             result.print(FxHashMap::default());
         }
         Commands::Eval { demo } => match demo {
-            Demo::Threaded => demo_threaded(),
-            Demo::Random => random_match(10_000),
+            Demo::Threaded { num_games } => demo_threaded(num_games),
+            Demo::Random { num_games } => random_match(num_games.into()),
         },
     }
 }
@@ -119,11 +125,13 @@ fn demo_p(player_ct: u8, record: Option<PathBuf>) {
     handle.join().unwrap();
 }
 
-fn demo_threaded() {
-    let desired_n = 10_000;
+fn demo_threaded(desired_n: u32) {
     let t = 8;
     let n_t = desired_n / t;
     let n = n_t * t;
+    if n != desired_n {
+        println!("WARN, requested games {desired_n}, not divisible by threads {t} n instead {n}");
+    }
     let mut threads: Vec<JoinHandle<(u32, u32, u32)>> = vec![];
 
     let get_white = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::White)) };
