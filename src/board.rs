@@ -3,6 +3,7 @@ use std::{cmp::max, cmp::min, unreachable};
 use crate::{
     arena::MessageResult,
     bots::bot::MoveRequest,
+    coord_map::CoordMap,
     referee::Player,
     tile::{MiniTile, Rotation, TileClickTarget, TileData, CARDINALS},
 };
@@ -13,8 +14,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 pub type Coordinate = (i8, i8);
 
 #[derive(Clone, Default)]
-pub struct ConcreteBoard {
-    data: FxHashMap<Coordinate, TileData>,
+pub struct ConcreteBoard<T = CoordMap> {
+    data: T,
 }
 
 pub static DELTAS: [Coordinate; 4] = [(0, 1), (1, 0), (-1, 0), (0, -1)];
@@ -679,7 +680,7 @@ impl BoardData for ConcreteBoard {
         self.data.get(coord)
     }
     fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_> {
-        Box::new(self.data.iter().map(|x| *x.0))
+        Box::new(self.data.tiles_present())
     }
     fn as_user(&self) -> BoardUser {
         BoardUser {
@@ -702,11 +703,11 @@ impl ConcreteBoard {
         if let Some(last) = last {
             let (mut min_row, mut min_col) = last.0;
             let (mut max_row, mut max_col) = (min_row, min_col);
-            for (row, col) in self.data.keys() {
-                min_row = min(min_row, *row);
-                min_col = min(min_col, *col);
-                max_row = max(max_row, *row);
-                max_col = max(max_col, *col);
+            for (row, col) in self.data.iter().map(|x| x.0) {
+                min_row = min(min_row, row);
+                min_col = min(min_col, col);
+                max_row = max(max_row, row);
+                max_col = max(max_col, col);
             }
 
             ((min_row, max_row), (min_col, max_col))

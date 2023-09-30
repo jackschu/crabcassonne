@@ -1,6 +1,7 @@
 pub mod arena;
 pub mod board;
 pub mod bots;
+pub mod coord_map;
 pub mod referee;
 pub mod render;
 pub mod render_tile;
