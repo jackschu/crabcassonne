@@ -35,10 +35,10 @@ const INC: usize = 4;
 impl Default for CoordMap {
     fn default() -> Self {
         let mut v = Vec::new();
-        v.resize_with((INITIAL_BOARD * INITIAL_BOARD) as usize, Default::default);
+        v.resize_with(INITIAL_BOARD * INITIAL_BOARD, Default::default);
         Self {
             data: v,
-            coords_present: Vec::with_capacity((INITIAL_BOARD) as usize),
+            coords_present: Vec::with_capacity(INITIAL_BOARD),
             inner_size: INITIAL_BOARD,
         }
     }
@@ -58,17 +58,17 @@ impl CoordMap {
         let first = (k.0 + (self.inner_size / 2) as i8) as i32 * (self.inner_size as i32);
         let second = k.1 as i32 + (self.inner_size / 2) as i32;
         let out = (first + second) as usize;
-        if out >= (self.inner_size * self.inner_size) as usize {
+        if out >= (self.inner_size * self.inner_size) {
             None
         } else {
             Some(out)
         }
     }
     fn key_to_coord(&self, k: usize) -> Coordinate {
-        let rem = k % (self.inner_size as usize);
+        let rem = k % self.inner_size;
         let second: i8 = rem as i8 - (self.inner_size / 2) as i8;
         let first: i8 =
-            ((k - rem) / (self.inner_size as usize)) as i8 - (self.inner_size / 2) as i8;
+            ((k - rem) / self.inner_size) as i8 - (self.inner_size / 2) as i8;
         (first, second)
     }
     pub fn tiles_present(&self) -> impl Iterator<Item = Coordinate> + '_ {
@@ -105,7 +105,7 @@ impl CoordMap {
                     }
                 )
             }
-            println!("");
+            println!();
         }
     }
 
