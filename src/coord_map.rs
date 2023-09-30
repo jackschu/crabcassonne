@@ -30,7 +30,7 @@ pub struct CoordMap {
 }
 
 // must be divisible by 2
-const INITIAL_BOARD: usize = 12;
+const INITIAL_BOARD: usize = 20;
 const INC: usize = 4;
 impl Default for CoordMap {
     fn default() -> Self {
@@ -67,8 +67,7 @@ impl CoordMap {
     fn key_to_coord(&self, k: usize) -> Coordinate {
         let rem = k % self.inner_size;
         let second: i8 = rem as i8 - (self.inner_size / 2) as i8;
-        let first: i8 =
-            ((k - rem) / self.inner_size) as i8 - (self.inner_size / 2) as i8;
+        let first: i8 = ((k - rem) / self.inner_size) as i8 - (self.inner_size / 2) as i8;
         (first, second)
     }
     pub fn tiles_present(&self) -> impl Iterator<Item = Coordinate> + '_ {
@@ -92,6 +91,7 @@ impl CoordMap {
         None
     }
 
+    #[allow(dead_code)]
     fn debug_print(&self) {
         let lim: i32 = (self.inner_size / 2) as i32;
         for i in -lim..lim {
@@ -144,7 +144,6 @@ impl CoordMap {
             self.coords_present.push(k)
         }
         self.data[key] = Some(v);
-        self.debug_print();
     }
 }
 
