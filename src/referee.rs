@@ -17,8 +17,8 @@ use crate::{
 pub struct RefereeState {
     pub tilebag: Box<dyn TileBag>,
     pub board: ConcreteBoard,
-    turn_order: Vec<Player>,
-    turn_idx: usize,
+    pub turn_order: Vec<Player>,
+    pub turn_idx: usize,
     pub is_placing_meeple: bool,
     pub player_scores: FxHashMap<Player, u32>,
     placing_tile: Option<Coordinate>,
@@ -26,6 +26,21 @@ pub struct RefereeState {
 }
 
 static INITIAL_MEEPLES: u8 = 7;
+
+impl Clone for RefereeState {
+    fn clone(&self) -> Self {
+        Self {
+            tilebag: Box::new(self.tilebag.as_new_tile_bag()),
+            board: self.board.clone(),
+            turn_order: self.turn_order.clone(),
+            turn_idx: self.turn_idx.clone(),
+            is_placing_meeple: self.is_placing_meeple.clone(),
+            player_scores: self.player_scores.clone(),
+            placing_tile: self.placing_tile.clone(),
+            player_meeples: self.player_meeples.clone(),
+        }
+    }
+}
 
 impl Default for RefereeState {
     fn default() -> Self {
@@ -188,9 +203,9 @@ impl RefereeState {
         if meeples_remaining == 0 {
             return Err("out of meeples");
         }
-        if !self.is_legal_meeple_placement(coord, &location) {
-            return Err("illegal meeple placement");
-        }
+        self.board_user()
+            .is_legal_meeple(&coord, location.clone())?;
+
         let tile = self.board.at_mut(&coord);
         if let Some(tile) = tile {
             tile.place_meeple(&location, &player)?;

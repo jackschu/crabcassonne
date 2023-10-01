@@ -13,6 +13,7 @@ use itertools::Itertools;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::bots::random_bot::RandomBot;
+use crate::tile::{MiniTile, TileDataBuilder};
 use crate::{
     board::{BoardData, Coordinate},
     bots::{bot::Bot, bot::MoveRequest, replay_bot::ReplayBot},
@@ -65,8 +66,14 @@ impl Replay {
             .collect();
 
         if !should_render {
-            return Match::play_custom(bots, Box::new(ReplayTileBag::new(bag_data)), None, None)
-                .unwrap();
+            return Match::play_custom(
+                bots,
+                Box::new(ReplayTileBag::new(bag_data)),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
         }
         let mut frames: Vec<RenderState> = vec![];
         let out = Match::play_custom(
@@ -74,6 +81,7 @@ impl Replay {
             Box::new(ReplayTileBag::new(bag_data)),
             None,
             Some(&mut frames),
+            None,
         )
         .unwrap();
         self.replay_ui(frames);
@@ -186,14 +194,28 @@ impl GameResult {
 pub type MessageResult<T> = Result<T, &'static str>;
 
 impl Match {
+    pub fn play_random_from_state(referee: RefereeState) -> MessageResult<GameResult> {
+        Self::play_custom(
+            referee
+                .turn_order
+                .iter()
+                .map(|player| -> Box<dyn Bot> { Box::new(RandomBot::new(player.clone())) })
+                .collect(),
+            Box::new(ReplayTileBag::new(vec![TileDataBuilder::default().into()])),
+            None,
+            None,
+            Some(referee),
+        )
+    }
     pub fn play(bots: Vec<Box<dyn Bot>>, record: Option<PathBuf>) -> MessageResult<GameResult> {
-        Self::play_custom(bots, Box::<LegalTileBag>::default(), record, None)
+        Self::play_custom(bots, Box::<LegalTileBag>::default(), record, None, None)
     }
     pub fn play_custom(
         bots: Vec<Box<dyn Bot>>,
         bag: Box<dyn TileBag>,
         record: Option<PathBuf>,
         replay_frames: Option<&mut Vec<RenderState>>,
+        referee_override: Option<RefereeState>,
     ) -> MessageResult<GameResult> {
         let mut players: Vec<Player> = bots
             .iter()
@@ -201,8 +223,14 @@ impl Match {
             .unique()
             .collect();
         players.sort();
-        let mut state = RefereeState::from_players(players.clone(), bag);
+        let mut state = if let Some(referee) = referee_override {
+            referee
+        } else {
+            RefereeState::from_players(players.clone(), bag)
+        };
+
         let mut player_map: FxHashMap<Player, Box<dyn Bot>> = FxHashMap::default();
+
         for bot in bots {
             player_map.insert(bot.get_own_player().clone(), bot);
         }
@@ -211,8 +239,13 @@ impl Match {
             turn_order: players.clone(),
             ..Default::default()
         };
+        let mut bypass = state.turn_idx;
         while state.tilebag.peek().is_ok() {
             for turn in &players {
+                if bypass > 0 {
+                    bypass -= 1;
+                    continue;
+                }
                 state.tilebag.ensure_legal_draw(&state.board.as_user());
                 let bot = player_map.get_mut(turn).unwrap();
                 let move_request = bot.get_move(&state);

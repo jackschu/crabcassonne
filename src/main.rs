@@ -7,7 +7,7 @@ use std::{
 
 use crabcassonne::{
     arena::{random_match, Match, Replay},
-    bots::{bot::Bot, greedy_bot::GreedyBot, human_bot::HumanBot, random_bot::RandomBot},
+    bots::{bot::Bot, greedy_bot::GreedyBot, human_bot::HumanBot, shallow_bot::ShallowBot},
     referee::Player,
     render::{InteractionMessage, MyApp, RenderMessage},
 };
@@ -97,7 +97,7 @@ fn demo_p(player_ct: u8, record: Option<PathBuf>) {
         let bot_b: Box<dyn Bot> = if player_ct > 1 {
             Box::new(HumanBot::new(Player::Black, receiver_mutex, input_sender))
         } else {
-            Box::new(RandomBot::new(Player::Black))
+            Box::new(ShallowBot::new(Player::Black))
         };
 
         let mut names = FxHashMap::default();
@@ -125,6 +125,26 @@ fn demo_p(player_ct: u8, record: Option<PathBuf>) {
     handle.join().unwrap();
 }
 
+#[derive(Default)]
+struct AggStats {
+    pub white_win: u32,
+    pub draw: u32,
+    pub black_win: u32,
+    pub white_advantage: i32,
+}
+
+impl AggStats {
+    pub fn get_n(&self) -> u32 {
+        self.white_win + self.draw + self.black_win
+    }
+    pub fn add(&mut self, other: Self) {
+        self.white_advantage += other.white_advantage;
+        self.white_win += other.white_win;
+        self.draw += other.draw;
+        self.black_win += other.black_win;
+    }
+}
+
 fn demo_threaded(desired_n: u32) {
     let t = 8;
     let n_t = desired_n / t;
@@ -132,50 +152,47 @@ fn demo_threaded(desired_n: u32) {
     if n != desired_n {
         println!("WARN, requested games {desired_n}, not divisible by threads {t} n instead {n}");
     }
-    let mut threads: Vec<JoinHandle<(u32, u32, u32)>> = vec![];
+    let mut threads: Vec<JoinHandle<AggStats>> = vec![];
 
-    let get_white = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::White)) };
+    let get_white = || -> Box<dyn Bot> { Box::new(ShallowBot::new(Player::White)) };
     let get_black = || -> Box<dyn Bot> { Box::new(GreedyBot::new(Player::Black)) };
     for _i in 0..t {
         let x = thread::spawn(move || {
-            let mut white_win = 0;
-            let mut black_win = 0;
-            let mut draw = 0;
+            let mut stats = AggStats::default();
             for _i in 0..(n_t) {
                 let bot_w = get_white();
                 let bot_b = get_black();
                 let result = Match::play(vec![bot_w, bot_b], None).unwrap();
+                stats.white_advantage += *result.player_scores.get(&Player::White).unwrap() as i32;
+                stats.white_advantage -= *result.player_scores.get(&Player::Black).unwrap() as i32;
                 let winners = result.get_winners();
                 if winners.len() > 1 {
-                    draw += 1;
+                    stats.draw += 1;
                 } else if winners.into_iter().last().unwrap() == Player::White {
-                    white_win += 1;
+                    stats.white_win += 1;
                 } else {
-                    black_win += 1;
+                    stats.black_win += 1;
                 }
             }
-            (white_win, draw, black_win)
+            stats
         });
         threads.push(x)
     }
 
-    let mut white_win = 0;
-    let mut black_win = 0;
-    let mut draw = 0;
+    let mut stats = AggStats::default();
 
     for thread in threads {
-        let (w_d, d_d, b_d) = thread.join().unwrap();
-        white_win += w_d;
-        draw += d_d;
-        black_win += b_d;
+        stats.add(thread.join().unwrap());
     }
 
+    let n = stats.get_n();
     println!(
-        "White ({}) winrate {:.2}, Draw-rate {:.2}, Black ({}) winrate {:.2} (n = {n})",
+        "White ({}) winrate {:.2}, Draw-rate {:.2}, Black ({}) winrate {:.2}\nwhite avg score advantage = {:.1} (n = {n})",
         get_white().get_name(),
-        white_win as f64 / n as f64,
-        draw as f64 / n as f64,
+        stats.white_win as f64 / n as f64,
+        stats.draw as f64 / n as f64,
         get_black().get_name(),
-        black_win as f64 / n as f64,
+        stats.black_win as f64 / n as f64,
+        stats.white_advantage as f64 / n as f64,
     );
 }

@@ -223,7 +223,7 @@ impl BoardUser<'_> {
         &self,
         initial_coord: &Coordinate,
         direction: TileClickTarget,
-        early_exit: Option<fn(&TileData) -> Option<T>>,
+        early_exit: Option<fn(&TileData, &Coordinate, &TileClickTarget) -> Option<T>>,
         should_build_result: bool,
     ) -> Option<TraversalResult<'_, T>> {
         let initial_tile = self.board.at(initial_coord)?;
@@ -235,7 +235,7 @@ impl BoardUser<'_> {
         let mut queue = vec![(*initial_coord, direction.clone())];
         let mut visited = FxHashSet::default();
         if let Some(criteria) = early_exit {
-            if let Some(out) = criteria(initial_tile) {
+            if let Some(out) = criteria(initial_tile, initial_coord, &direction) {
                 return Some(TraversalResult::EarlyExit(out));
             }
         }
@@ -247,7 +247,7 @@ impl BoardUser<'_> {
                 for direction in &directions {
                     if visited.insert((coord, direction.clone()).clone()) {
                         if let Some(criteria) = early_exit {
-                            if let Some(out) = criteria(tile) {
+                            if let Some(out) = criteria(tile, &coord, direction) {
                                 return Some(TraversalResult::EarlyExit(out));
                             }
                         }
@@ -263,13 +263,16 @@ impl BoardUser<'_> {
                     })
                     .try_for_each(|elem| -> Result<(), T> {
                         if visited.insert(elem.clone()) {
-                            if visited.insert((coord, direction.clone())) {
-                                if let Some(criteria) = early_exit {
-                                    if let Some(out) = criteria(tile) {
+                            if let Some(criteria) = early_exit {
+                                let (coord, direction) = &elem;
+                                let tile = self.board.at(coord);
+                                if let Some(tile) = tile {
+                                    if let Some(out) = criteria(tile, coord, direction) {
                                         return Err(out);
                                     }
                                 }
                             }
+
                             queue.push(elem);
                         }
                         Ok(())
@@ -507,12 +510,11 @@ impl BoardUser<'_> {
                 if target == TileClickTarget::Center {
                     return Err("Cant place meeple on center for non monestary");
                 }
-                let early_exit = |tile: &TileData| -> Option<()> {
-                    if tile.get_meeple_locations().is_empty() {
-                        None
-                    } else {
-                        Some(())
-                    }
+                let early_exit = |tile: &TileData,
+                                  _coord: &Coordinate,
+                                  direction: &TileClickTarget|
+                 -> Option<()> {
+                    tile.get_meeple_at(direction).map(|_| {})
                 };
 
                 let result = self
@@ -753,8 +755,9 @@ mod tests {
     use std::assert_eq;
 
     use crate::{
+        referee::RefereeState,
         tile::{MiniTile, TileDataBuilder},
-        tilebag::{LegalTileBag, TileBag},
+        tilebag::{LegalTileBag, ReplayTileBag, TileBag},
     };
 
     use super::*;
@@ -1007,7 +1010,6 @@ mod tests {
         for data in score_data {
             let out = board.remove_meeples(data.removal_candidate);
             removed += out.get(&player).unwrap_or(&0);
-            println!("{out:?}");
         }
 
         assert_eq!(removed, 1);
@@ -1107,5 +1109,48 @@ mod tests {
                 break;
             }
         }
+    }
+
+    #[test]
+    fn check_legal_is_mini_specific() {
+        let first: TileData = TileDataBuilder {
+            top: MiniTile::City,
+            left: MiniTile::Road,
+            center: MiniTile::Road,
+            right: MiniTile::Road,
+            ..Default::default()
+        }
+        .into();
+        let second: TileData = first.clone();
+        let third: TileData = TileDataBuilder {
+            left: MiniTile::Road,
+            ..Default::default()
+        }
+        .into();
+        let bag = Box::new(ReplayTileBag::new(vec![first, second, third]));
+
+        let mut state = RefereeState::from_players(vec![Player::White, Player::Black], bag);
+        state
+            .process_move(MoveRequest {
+                coord: (0, 0),
+                meeple: Some(TileClickTarget::Top),
+                ..Default::default()
+            })
+            .unwrap();
+        state
+            .process_move(MoveRequest {
+                coord: (1, 0),
+                rotation: Rotation::Flip,
+                ..Default::default()
+            })
+            .unwrap();
+
+        state
+            .process_move(MoveRequest {
+                coord: (0, 1),
+                meeple: Some(TileClickTarget::Left),
+                ..Default::default()
+            })
+            .unwrap();
     }
 }

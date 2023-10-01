@@ -6,6 +6,7 @@ use crate::{
     tile::{MiniTile, TileData, TileDataBuilder},
 };
 
+#[derive(Clone)]
 pub enum NextTileType {
     FirstTile(TileData),
     BagTile(usize),
@@ -35,6 +36,11 @@ pub trait TileBag {
         };
         self.pick_next_idx();
         out
+    }
+
+    fn as_new_tile_bag(&self) -> LegalTileBag {
+        let data = self.get_data().clone();
+        LegalTileBag::from_data(data, self.get_next_idx().clone())
     }
 
     fn ensure_legal_draw(&mut self, board_user: &BoardUser) {
@@ -121,6 +127,19 @@ impl TileBag for ReplayTileBag {
         }
     }
 }
+
+impl LegalTileBag {
+    fn from_data(data: Vec<TileData>, next: NextTileType) -> Self {
+        let rng = rand::thread_rng();
+
+        Self {
+            data: data,
+            rng: rng,
+            next_idx: next,
+        }
+    }
+}
+
 impl Default for LegalTileBag {
     fn default() -> Self {
         let mut data: Vec<TileDataBuilder> = Vec::new();
