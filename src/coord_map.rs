@@ -55,14 +55,11 @@ impl CoordMap {
         if self.is_oob(k.0 as i32) || self.is_oob(k.1 as i32) {
             return None;
         }
-        let first = (k.0 + (self.inner_size / 2) as i8) as i32 * (self.inner_size as i32);
-        let second = k.1 as i32 + (self.inner_size / 2) as i32;
-        let out = (first + second) as usize;
-        if out >= (self.inner_size * self.inner_size) {
-            None
-        } else {
-            Some(out)
-        }
+        let k = (k.0 as isize, k.1 as isize);
+        let inner = self.inner_size as isize;
+        let out = (2 * k.0 + inner + 1) * (inner / 2) + k.1;
+
+        Some(out as usize)
     }
     fn key_to_coord(&self, k: usize) -> Coordinate {
         let rem = k % self.inner_size;
