@@ -133,8 +133,8 @@ impl LegalTileBag {
         let rng = rand::thread_rng();
 
         Self {
-            data: data,
-            rng: rng,
+            data,
+            rng,
             next_idx: next,
         }
     }

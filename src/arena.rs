@@ -13,7 +13,7 @@ use itertools::Itertools;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::bots::random_bot::RandomBot;
-use crate::tile::{MiniTile, TileDataBuilder};
+use crate::tile::{TileDataBuilder};
 use crate::{
     board::{BoardData, Coordinate},
     bots::{bot::Bot, bot::MoveRequest, replay_bot::ReplayBot},

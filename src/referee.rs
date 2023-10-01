@@ -33,10 +33,10 @@ impl Clone for RefereeState {
             tilebag: Box::new(self.tilebag.as_new_tile_bag()),
             board: self.board.clone(),
             turn_order: self.turn_order.clone(),
-            turn_idx: self.turn_idx.clone(),
-            is_placing_meeple: self.is_placing_meeple.clone(),
+            turn_idx: self.turn_idx,
+            is_placing_meeple: self.is_placing_meeple,
             player_scores: self.player_scores.clone(),
-            placing_tile: self.placing_tile.clone(),
+            placing_tile: self.placing_tile,
             player_meeples: self.player_meeples.clone(),
         }
     }
