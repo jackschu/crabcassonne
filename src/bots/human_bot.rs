@@ -54,6 +54,11 @@ impl HumanBot {
         location: TileClickTarget,
         state: &RefereeState,
     ) -> MessageResult<()> {
+        let player = self.get_own_player();
+        let count = state.player_meeples.get(player).unwrap_or(&0);
+        if *count <= 0 {
+            return Err("No meeples remaining");
+        }
         let next = state.tilebag.peek()?;
 
         let mut next = next.clone();
