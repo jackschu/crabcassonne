@@ -1,3 +1,8 @@
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 // Note RAYON_NUM_THREADS=1 may be useful here
 
 use crabcassonne::{

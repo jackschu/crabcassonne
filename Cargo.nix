@@ -1022,6 +1022,7 @@ in
       egui = rustPackages."registry+https://github.com/rust-lang/crates.io-index".egui."0.22.0" { inherit profileName; };
       indicatif = rustPackages."registry+https://github.com/rust-lang/crates.io-index".indicatif."0.17.7" { inherit profileName; };
       itertools = rustPackages."registry+https://github.com/rust-lang/crates.io-index".itertools."0.11.0" { inherit profileName; };
+      mimalloc = rustPackages."registry+https://github.com/rust-lang/crates.io-index".mimalloc."0.1.39" { inherit profileName; };
       once_cell = rustPackages."registry+https://github.com/rust-lang/crates.io-index".once_cell."1.18.0" { inherit profileName; };
       rand = rustPackages."registry+https://github.com/rust-lang/crates.io-index".rand."0.8.5" { inherit profileName; };
       rayon = rustPackages."registry+https://github.com/rust-lang/crates.io-index".rayon."1.8.0" { inherit profileName; };
@@ -2125,6 +2126,19 @@ in
     };
   });
   
+  "registry+https://github.com/rust-lang/crates.io-index".libmimalloc-sys."0.1.35" = overridableMkRustCrate (profileName: rec {
+    name = "libmimalloc-sys";
+    version = "0.1.35";
+    registry = "registry+https://github.com/rust-lang/crates.io-index";
+    src = fetchCratesIo { inherit name version; sha256 = "3979b5c37ece694f1f5e51e7ecc871fdb0f517ed04ee45f88d15d6d553cb9664"; };
+    dependencies = {
+      libc = rustPackages."registry+https://github.com/rust-lang/crates.io-index".libc."0.2.147" { inherit profileName; };
+    };
+    buildDependencies = {
+      cc = buildRustPackages."registry+https://github.com/rust-lang/crates.io-index".cc."1.0.83" { profileName = "__noProfile"; };
+    };
+  });
+  
   "registry+https://github.com/rust-lang/crates.io-index".linux-raw-sys."0.3.8" = overridableMkRustCrate (profileName: rec {
     name = "linux-raw-sys";
     version = "0.3.8";
@@ -2246,6 +2260,16 @@ in
     ];
     buildDependencies = {
       autocfg = buildRustPackages."registry+https://github.com/rust-lang/crates.io-index".autocfg."1.1.0" { profileName = "__noProfile"; };
+    };
+  });
+  
+  "registry+https://github.com/rust-lang/crates.io-index".mimalloc."0.1.39" = overridableMkRustCrate (profileName: rec {
+    name = "mimalloc";
+    version = "0.1.39";
+    registry = "registry+https://github.com/rust-lang/crates.io-index";
+    src = fetchCratesIo { inherit name version; sha256 = "fa01922b5ea280a911e323e4d2fd24b7fe5cc4042e0d2cda3c40775cdc4bdc9c"; };
+    dependencies = {
+      libmimalloc_sys = rustPackages."registry+https://github.com/rust-lang/crates.io-index".libmimalloc-sys."0.1.35" { inherit profileName; };
     };
   });
   
