@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use std::cmp::Ordering;
 
 use rand::rngs::ThreadRng;
@@ -39,31 +40,35 @@ impl Bot for ShallowBot {
     fn get_move(&mut self, state: &RefereeState) -> MoveRequest {
         let board_user = state.board.as_user();
 
+        let own_player = self.get_own_player().clone();
         let tile = state.tilebag.peek().unwrap();
         let can_place = state
             .player_meeples
-            .get(self.get_own_player())
+            .get(&own_player)
             .map(|ct| ct > &0)
             .unwrap_or(false);
         let moves: Vec<MoveRequest> = board_user.get_legal_moves(tile, can_place);
         let mut candidate: Option<(MoveRequest, i32)> = None;
 
         for move_request in moves {
-            let mut total: i32 = 0;
-
-            for _i in 0..SAMPLING {
-                let mut state = state.clone();
-
-                state.process_move(move_request.clone()).unwrap();
-                let result = Match::play_random_from_state(state).unwrap();
-                for (player, points) in result.player_scores {
-                    if &player == self.get_own_player() {
-                        total += points as i32;
-                    } else {
-                        total -= points as i32;
+            let total = (0..SAMPLING)
+                .into_par_iter()
+                .map(|_i| {
+                    let mut out: i32 = 0;
+                    let mut state = state.clone();
+                    state.process_move(move_request.clone()).unwrap();
+                    let result = Match::play_random_from_state(state).unwrap();
+                    for (player, points) in result.player_scores {
+                        if &player == &own_player {
+                            out += points as i32;
+                        } else {
+                            out -= points as i32;
+                        }
                     }
-                }
-            }
+                    out
+                })
+                .sum();
+
             if let Some((_request, score)) = candidate.clone() {
                 match score.cmp(&total) {
                     Ordering::Less => {

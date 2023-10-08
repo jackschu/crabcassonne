@@ -1,4 +1,4 @@
-use rand::{rngs::ThreadRng, Rng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
     arena::MessageResult,
@@ -13,7 +13,7 @@ pub enum NextTileType {
     Empty,
 }
 
-pub trait TileBag {
+pub trait TileBag: Sync {
     fn get_data_mut(&mut self) -> &mut Vec<TileData>;
 
     fn get_data(&self) -> &Vec<TileData>;
@@ -71,7 +71,7 @@ pub trait TileBag {
 
 pub struct LegalTileBag {
     data: Vec<TileData>,
-    rng: ThreadRng,
+    rng: StdRng,
     next_idx: NextTileType,
 }
 
@@ -130,11 +130,9 @@ impl TileBag for ReplayTileBag {
 
 impl LegalTileBag {
     fn from_data(data: Vec<TileData>, next: NextTileType) -> Self {
-        let rng = rand::thread_rng();
-
         Self {
             data,
-            rng,
+            rng: StdRng::seed_from_u64(rand::random()),
             next_idx: next,
         }
     }
@@ -419,7 +417,7 @@ impl Default for LegalTileBag {
 
         LegalTileBag {
             data: data.into_iter().map(|builder| builder.into()).collect(),
-            rng: rand::thread_rng(),
+            rng: StdRng::seed_from_u64(rand::random()),
             next_idx: NextTileType::FirstTile(
                 TileDataBuilder {
                     top: MiniTile::City,

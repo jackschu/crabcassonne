@@ -2,15 +2,19 @@ use std::{
     path::PathBuf,
     rc::Rc,
     sync::{mpsc::channel, Mutex},
-    thread::{self, JoinHandle},
+    thread,
 };
 
 use crabcassonne::{
     arena::{random_match, Match, Replay},
-    bots::{bot::Bot, greedy_bot::GreedyBot, human_bot::HumanBot, shallow_bot::ShallowBot},
+    bots::{
+        bot::Bot, greedy_bot::GreedyBot, human_bot::HumanBot, random_bot::RandomBot,
+        shallow_bot::ShallowBot,
+    },
     referee::Player,
     render::{InteractionMessage, MyApp, RenderMessage},
 };
+use rayon::prelude::*;
 
 use clap::{Parser, Subcommand};
 use rustc_hash::FxHashMap;
@@ -146,43 +150,36 @@ impl AggStats {
 }
 
 fn demo_threaded(desired_n: u32) {
-    let t = 8;
-    let n_t = desired_n / t;
-    let n = n_t * t;
-    if n != desired_n {
-        println!("WARN, requested games {desired_n}, not divisible by threads {t} n instead {n}");
-    }
-    let mut threads: Vec<JoinHandle<AggStats>> = vec![];
+    let n = desired_n;
 
-    let get_white = || -> Box<dyn Bot> { Box::new(ShallowBot::new(Player::White)) };
-    let get_black = || -> Box<dyn Bot> { Box::new(GreedyBot::new(Player::Black)) };
-    for _i in 0..t {
-        let x = thread::spawn(move || {
-            let mut stats = AggStats::default();
-            for _i in 0..(n_t) {
-                let bot_w = get_white();
-                let bot_b = get_black();
-                let result = Match::play(vec![bot_w, bot_b], None).unwrap();
-                stats.white_advantage += *result.player_scores.get(&Player::White).unwrap() as i32;
-                stats.white_advantage -= *result.player_scores.get(&Player::Black).unwrap() as i32;
-                let winners = result.get_winners();
-                if winners.len() > 1 {
-                    stats.draw += 1;
-                } else if winners.into_iter().last().unwrap() == Player::White {
-                    stats.white_win += 1;
-                } else {
-                    stats.black_win += 1;
-                }
-            }
-            stats
-        });
-        threads.push(x)
-    }
+    let get_white = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::White)) };
+    let get_black = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::Black)) };
 
     let mut stats = AggStats::default();
 
-    for thread in threads {
-        stats.add(thread.join().unwrap());
+    let game_results: Vec<AggStats> = (0..n)
+        .into_par_iter()
+        .map(|_| {
+            let mut stats = AggStats::default();
+            let bot_w = get_white();
+            let bot_b = get_black();
+            let result = Match::play(vec![bot_w, bot_b], None).unwrap();
+            stats.white_advantage += *result.player_scores.get(&Player::White).unwrap() as i32;
+            stats.white_advantage -= *result.player_scores.get(&Player::Black).unwrap() as i32;
+            let winners = result.get_winners();
+            if winners.len() > 1 {
+                stats.draw += 1;
+            } else if winners.into_iter().last().unwrap() == Player::White {
+                stats.white_win += 1;
+            } else {
+                stats.black_win += 1;
+            }
+            stats
+        })
+        .collect();
+
+    for x in game_results {
+        stats.add(x)
     }
 
     let n = stats.get_n();
