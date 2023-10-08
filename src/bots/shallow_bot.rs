@@ -15,22 +15,22 @@ use super::bot::{Bot, MoveRequest};
 pub struct ShallowBot {
     pub own_player: Player,
     rng: ThreadRng,
+    depth: u32,
 }
 
 impl ShallowBot {
-    pub fn new(player: Player) -> Self {
+    pub fn new(player: Player, depth: u32) -> Self {
         ShallowBot {
             own_player: player,
             rng: rand::thread_rng(),
+            depth,
         }
     }
 }
 
-const SAMPLING: u8 = 10;
-
 impl Bot for ShallowBot {
-    fn get_name(&self) -> &str {
-        "shallow bot"
+    fn get_name(&self) -> String {
+        format!("shallow bot {}", self.depth)
     }
 
     fn get_own_player(&self) -> &Player {
@@ -51,7 +51,7 @@ impl Bot for ShallowBot {
         let mut candidate: Option<(MoveRequest, i32)> = None;
 
         for move_request in moves {
-            let total = (0..SAMPLING)
+            let total = (0..self.depth)
                 .into_par_iter()
                 .map(|_i| {
                     let mut out: i32 = 0;

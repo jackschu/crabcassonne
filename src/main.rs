@@ -57,6 +57,9 @@ enum Demo {
     Threaded {
         #[arg(short, long, default_value_t = 10_000)]
         num_games: u32,
+        /// Simulate games between non_random players
+        #[arg(short, long, default_value_t = false)]
+        slow: bool,
     },
     /// [Benchmark] pits random-move bots against eachother in a single thread
     Random {
@@ -76,7 +79,7 @@ fn main() {
             result.print(FxHashMap::default());
         }
         Commands::Eval { demo } => match demo {
-            Demo::Threaded { num_games } => demo_threaded(num_games),
+            Demo::Threaded { num_games, slow } => demo_threaded(num_games, !slow),
             Demo::Random { num_games } => random_match(num_games.into()),
         },
     }
@@ -101,7 +104,7 @@ fn demo_p(player_ct: u8, record: Option<PathBuf>) {
         let bot_b: Box<dyn Bot> = if player_ct > 1 {
             Box::new(HumanBot::new(Player::Black, receiver_mutex, input_sender))
         } else {
-            Box::new(ShallowBot::new(Player::Black))
+            Box::new(ShallowBot::new(Player::Black, 20))
         };
 
         let mut names = FxHashMap::default();
@@ -149,11 +152,11 @@ impl AggStats {
     }
 }
 
-fn demo_threaded(desired_n: u32) {
-    let n = desired_n;
-
-    let get_white = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::White)) };
-    let get_black = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::Black)) };
+fn demo_threaded(n: u32, is_fast: bool) {
+    let get_fast_white = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::White)) };
+    let get_fast_black = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::Black)) };
+    let get_white = || -> Box<dyn Bot> { Box::new(ShallowBot::new(Player::White, 10)) };
+    let get_black = || -> Box<dyn Bot> { Box::new(ShallowBot::new(Player::Black, 11)) };
 
     let mut stats = AggStats::default();
 
@@ -161,9 +164,18 @@ fn demo_threaded(desired_n: u32) {
         .into_par_iter()
         .map(|_| {
             let mut stats = AggStats::default();
-            let bot_w = get_white();
-            let bot_b = get_black();
+            let bot_w = if is_fast {
+                get_fast_white()
+            } else {
+                get_white()
+            };
+            let bot_b = if is_fast {
+                get_fast_black()
+            } else {
+                get_black()
+            };
             let result = Match::play(vec![bot_w, bot_b], None).unwrap();
+
             stats.white_advantage += *result.player_scores.get(&Player::White).unwrap() as i32;
             stats.white_advantage -= *result.player_scores.get(&Player::Black).unwrap() as i32;
             let winners = result.get_winners();

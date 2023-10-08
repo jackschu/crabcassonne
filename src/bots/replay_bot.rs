@@ -22,8 +22,8 @@ impl ReplayBot {
 }
 
 impl Bot for ReplayBot {
-    fn get_name(&self) -> &str {
-        "replay bot"
+    fn get_name(&self) -> String {
+        "replay bot".to_owned()
     }
     fn get_own_player(&self) -> &Player {
         &self.own_player
