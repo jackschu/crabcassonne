@@ -13,7 +13,7 @@ use itertools::Itertools;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::bots::random_bot::RandomBot;
-use crate::tile::{TileDataBuilder};
+use crate::tile::TileDataBuilder;
 use crate::{
     board::{BoardData, Coordinate},
     bots::{bot::Bot, bot::MoveRequest, replay_bot::ReplayBot},
@@ -246,7 +246,10 @@ impl Match {
                     bypass -= 1;
                     continue;
                 }
-                state.tilebag.ensure_legal_draw(&state.board.as_user());
+                let is_empty = !state.tilebag.ensure_legal_draw(&state.board.as_user());
+                if is_empty {
+                    break;
+                }
                 let bot = player_map.get_mut(turn).unwrap();
                 let move_request = bot.get_move(&state);
                 if record.is_some() {

@@ -1,5 +1,3 @@
-use std::panic;
-
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
@@ -45,19 +43,17 @@ pub trait TileBag: Sync {
         LegalTileBag::from_data(data, self.get_next_idx().clone())
     }
 
-    fn ensure_legal_draw(&mut self, board_user: &BoardUser) {
-        for _i in 0..1000 {
-            if let Ok(tile) = self.peek() {
-                let legal = board_user.does_legal_move_exist(tile);
-                if legal {
-                    return;
-                }
-                self.pick_next_idx();
-            } else {
-                return;
+    // discards tiles until game is legal
+    // @returns True: is legal draw possible or False: we are out of tiles
+    fn ensure_legal_draw(&mut self, board_user: &BoardUser) -> bool {
+        while let Ok(tile) = self.peek() {
+            let legal = board_user.does_legal_move_exist(tile);
+            if legal {
+                return true;
             }
+            self.pull();
         }
-        panic!("Couldnt find legal draw");
+        return false;
     }
     fn pick_next_idx(&mut self);
     fn get_next_idx(&self) -> &NextTileType;
