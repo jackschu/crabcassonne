@@ -14,6 +14,7 @@ use crabcassonne::{
     referee::Player,
     render::{InteractionMessage, MyApp, RenderMessage},
 };
+use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 
 use clap::{Parser, Subcommand};
@@ -156,9 +157,17 @@ fn demo_threaded(n: u32, is_fast: bool) {
     let get_fast_white = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::White)) };
     let get_fast_black = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::Black)) };
     let get_white = || -> Box<dyn Bot> { Box::new(ShallowBot::new(Player::White, 10)) };
-    let get_black = || -> Box<dyn Bot> { Box::new(ShallowBot::new(Player::Black, 11)) };
+    let get_black = || -> Box<dyn Bot> { Box::new(ShallowBot::new(Player::Black, 10)) };
 
     let mut stats = AggStats::default();
+    let bar = ProgressBar::new(n as u64);
+
+    let progress_style = ProgressStyle::with_template(
+        "[{elapsed}/{duration}] {bar:40.green/white} {pos:>7}/{len:7} {msg}",
+    )
+    .unwrap();
+    bar.set_style(progress_style);
+    bar.inc(0);
 
     let game_results: Vec<AggStats> = (0..n)
         .into_par_iter()
@@ -188,6 +197,7 @@ fn demo_threaded(n: u32, is_fast: bool) {
             }
             stats
         })
+        .progress_with(bar)
         .collect();
 
     for x in game_results {
