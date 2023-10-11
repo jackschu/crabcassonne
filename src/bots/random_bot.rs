@@ -2,10 +2,7 @@ use crate::tilebag::TileBag;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 
-use crate::{
-    board::BoardData,
-    referee::{Player, RefereeState},
-};
+use crate::referee::{Player, RefereeState};
 
 use super::bot::{Bot, MoveRequest};
 
@@ -41,7 +38,7 @@ impl Bot for RandomBot {
             .get(self.get_own_player())
             .map(|ct| ct > &0)
             .unwrap_or(false);
-        let out: Vec<MoveRequest> = board.as_user().get_legal_moves(tile, can_place);
+        let out: Vec<MoveRequest> = board.as_overlay().get_legal_moves(tile, can_place);
 
         let idx = self.rng.gen_range(0..out.len());
         out[idx].clone()

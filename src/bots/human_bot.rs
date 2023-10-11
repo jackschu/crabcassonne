@@ -57,7 +57,7 @@ impl HumanBot {
     ) -> MessageResult<()> {
         let player = self.get_own_player();
         let count = state.player_meeples.get(player).unwrap_or(&0);
-        if *count <= 0 {
+        if *count == 0 {
             return Err("No meeples remaining");
         }
         let next = state.tilebag.peek()?;
@@ -65,7 +65,7 @@ impl HumanBot {
         let mut next = next.clone();
         next.rotation = rotation;
         let board = state.board.with_overlay(coord, &next);
-        board.as_user().is_legal_meeple(&coord, location)
+        board.is_legal_meeple(&coord, location)
     }
 }
 

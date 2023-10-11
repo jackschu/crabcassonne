@@ -7,7 +7,6 @@ use rand::Rng;
 
 use crate::{
     arena::Match,
-    board::BoardData,
     referee::{Player, RefereeState},
 };
 
@@ -39,7 +38,7 @@ impl Bot for ShallowBot {
     }
 
     fn get_move(&mut self, state: &RefereeState) -> MoveRequest {
-        let board_user = state.board.as_user();
+        let board_user = state.board.as_overlay();
 
         let own_player = self.get_own_player().clone();
         let tile = state.tilebag.peek().unwrap();
@@ -60,7 +59,7 @@ impl Bot for ShallowBot {
                     state.process_move(move_request.clone()).unwrap();
                     let result = Match::play_random_from_state(state).unwrap();
                     for (player, points) in result.player_scores {
-                        if &player == &own_player {
+                        if player == own_player {
                             out += points as i32;
                         } else {
                             out -= points as i32;

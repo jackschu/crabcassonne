@@ -3,7 +3,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
     arena::MessageResult,
-    board::BoardUser,
+    board::OverlaidBoard,
     tile::{MiniTile, TileData, TileDataBuilder},
 };
 
@@ -53,7 +53,7 @@ pub trait TileBag: Sync {
 
     // discards tiles until game is legal
     // @returns True: is legal draw possible or False: we are out of tiles
-    fn ensure_legal_draw(&mut self, board_user: &BoardUser) -> bool {
+    fn ensure_legal_draw(&mut self, board_user: &OverlaidBoard) -> bool {
         while let Ok(tile) = self.peek() {
             let legal = board_user.does_legal_move_exist(tile);
             if legal {
@@ -61,7 +61,7 @@ pub trait TileBag: Sync {
             }
             self.pull();
         }
-        return false;
+        false
     }
     fn pick_next_idx(&mut self);
     fn get_next_idx(&self) -> &NextTileType;

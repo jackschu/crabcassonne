@@ -85,7 +85,7 @@ impl eframe::App for MyApp {
                 ui.label("Press X to skip meeple placement");
             });
             if let Some(state) = &self.render_state {
-                let score_map = state.board.as_user().get_standing_points();
+                let score_map = state.board.as_overlay().get_standing_points();
 
                 for player in &state.turn_order {
                     ui.horizontal(|ui| {

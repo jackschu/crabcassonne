@@ -4,10 +4,7 @@ use std::cmp::Ordering;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 
-use crate::{
-    board::BoardData,
-    referee::{Player, RefereeState},
-};
+use crate::referee::{Player, RefereeState};
 
 use super::bot::{Bot, MoveRequest};
 
@@ -35,7 +32,7 @@ impl Bot for GreedyBot {
     }
 
     fn get_move(&mut self, state: &RefereeState) -> MoveRequest {
-        let board_user = state.board.as_user();
+        let board_user = state.board.as_overlay();
 
         let tile = state.tilebag.peek().unwrap();
         let can_place = state

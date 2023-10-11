@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     arena::MessageResult,
-    board::BoardData,
-    board::{BoardUser, ConcreteBoard, Coordinate},
+    board::{BoardData, OverlaidBoard},
+    board::{ConcreteBoard, Coordinate},
     bots::bot::MoveRequest,
     render::RenderState,
     tile::{Rotation, TileClickTarget, TileData},
@@ -128,16 +128,14 @@ impl RefereeState {
             player_meeples: self.player_meeples.clone(),
         }
     }
-    fn board_user(&self) -> BoardUser {
-        BoardUser {
-            board: Box::new(&self.board),
-        }
+    fn board_overlay(&self) -> OverlaidBoard {
+        self.board.as_overlay()
     }
     fn score_placement(&mut self) {
         if let Some(coord) = &self.placing_tile {
             if let Some(tile) = self.board.at(coord) {
-                let score_data = self.board_user().get_feature_score_data(coord, tile);
-                let points = self.board_user().get_points_from_score_data(&score_data);
+                let score_data = self.board_overlay().get_feature_score_data(coord, tile);
+                let points = self.board_overlay().get_points_from_score_data(&score_data);
                 for (maybe_player, addition) in points {
                     if let Some(player) = maybe_player {
                         if let Some(value) = self.player_scores.get_mut(&player) {
@@ -203,7 +201,7 @@ impl RefereeState {
         if meeples_remaining == 0 {
             return Err("out of meeples");
         }
-        self.board_user()
+        self.board_overlay()
             .is_legal_meeple(&coord, location.clone())?;
 
         let tile = self.board.at_mut(&coord);
@@ -220,20 +218,20 @@ impl RefereeState {
         self.turn_order[self.turn_idx].clone()
     }
     pub fn is_legal_meeple_placement(&self, coord: Coordinate, target: &TileClickTarget) -> bool {
-        self.board_user()
+        self.board_overlay()
             .is_legal_meeple(&coord, target.clone())
             .is_ok()
     }
     pub fn is_legal_placement(&self, coord: Coordinate, tile: &TileData) -> MessageResult<()> {
-        if self.board_user().tiles_placed() == 0 {
+        if self.board_overlay().tiles_placed() == 0 {
             return Ok(());
         }
-        let legal_tiles = self.board_user().get_legal_tiles();
+        let legal_tiles = self.board_overlay().get_legal_tiles();
         if !legal_tiles.contains(&coord) {
             return Err("Illegal tile placement: No connecting tile");
         }
 
-        if !self.board_user().is_features_match(&coord, tile) {
+        if !self.board_overlay().is_features_match(&coord, tile) {
             return Err("Illegal tile placement: features dont match");
         }
         Ok(())

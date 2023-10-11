@@ -69,43 +69,53 @@ pub struct FeatureResult<'a> {
     pub completed: bool,
     pub feature: MiniTile,
     pub visited: FxHashSet<(Coordinate, TileClickTarget)>,
-    pub board: Box<&'a dyn BoardData>,
+    pub board: &'a OverlaidBoard<'a>,
 }
 
 #[derive(Clone)]
 pub struct OverlaidBoard<'a> {
-    pub board: Box<&'a dyn BoardData>,
-    pub overlay: FxHashMap<Coordinate, &'a TileData>,
+    pub inner_board: &'a ConcreteBoard,
+    pub overlay: Option<FxHashMap<Coordinate, &'a TileData>>,
 }
 
 impl BoardData for OverlaidBoard<'_> {
     fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
-        let mut overlay = FxHashMap::default();
-        overlay.insert(coord, tile);
-        OverlaidBoard {
-            board: Box::new(self),
-            overlay,
-        }
-    }
-    fn as_user(&self) -> BoardUser {
-        BoardUser {
-            board: Box::new(self),
+        let overlay = self.overlay.clone();
+        if let Some(mut overlay) = overlay {
+            overlay.insert(coord, tile);
+            OverlaidBoard {
+                inner_board: self.inner_board,
+                overlay: Some(overlay),
+            }
+        } else {
+            let mut overlay = FxHashMap::default();
+            overlay.insert(coord, tile);
+
+            OverlaidBoard {
+                inner_board: self.inner_board,
+                overlay: Some(overlay),
+            }
         }
     }
     fn at(&self, coord: &Coordinate) -> Option<&TileData> {
-        if let Some(tile) = self.overlay.get(coord) {
-            Some(tile)
-        } else {
-            self.board.at(coord)
+        if let Some(overlay) = &self.overlay {
+            if let Some(tile) = overlay.get(coord) {
+                return Some(tile);
+            }
         }
+        return self.inner_board.at(coord);
     }
     fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_> {
-        Box::new(
-            self.board
-                .tiles_present()
-                .chain(self.overlay.iter().map(|x| *x.0))
-                .unique(),
-        )
+        if let Some(overlay) = &self.overlay {
+            Box::new(
+                self.inner_board
+                    .tiles_present()
+                    .chain(overlay.iter().map(|x| *x.0))
+                    .unique(),
+            )
+        } else {
+            Box::new(self.inner_board.tiles_present())
+        }
     }
 }
 
@@ -199,24 +209,21 @@ impl FeatureResult<'_> {
 pub trait BoardData {
     fn at(&self, coord: &Coordinate) -> Option<&TileData>;
     fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_>;
-    fn as_user(&self) -> BoardUser;
     fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard;
 }
 
 // seems like this weirdo pattern is needed (?) b/c I want to return a reference to
 // board data (w/in feature result), so if this was just to be w/in board data
 // that would be a reference to self which is not object safe?
-pub struct BoardUser<'a> {
-    pub board: Box<&'a dyn BoardData>,
-}
+
 enum TraversalResult<'a, T> {
     FinalExit,
     EarlyExit(T),
     FeatureResult(FeatureResult<'a>),
 }
-impl BoardUser<'_> {
+impl OverlaidBoard<'_> {
     pub fn tiles_placed(&self) -> u32 {
-        self.board.tiles_present().count() as u32
+        self.tiles_present().count() as u32
     }
 
     fn traverse_connecting_impl<T>(
@@ -226,7 +233,7 @@ impl BoardUser<'_> {
         early_exit: Option<fn(&TileData, &Coordinate, &TileClickTarget) -> Option<T>>,
         should_build_result: bool,
     ) -> Option<TraversalResult<'_, T>> {
-        let initial_tile = self.board.at(initial_coord)?;
+        let initial_tile = self.at(initial_coord)?;
         let initial_feature = initial_tile.at(&direction);
         if initial_feature != &MiniTile::Road && initial_feature != &MiniTile::City {
             return None;
@@ -242,7 +249,7 @@ impl BoardUser<'_> {
 
         visited.insert((*initial_coord, direction.clone()));
         while let Some((coord, direction)) = queue.pop() {
-            if let Some(tile) = self.board.at(&coord) {
+            if let Some(tile) = self.at(&coord) {
                 let directions = tile.get_exits(&direction);
                 for direction in &directions {
                     if visited.insert((coord, direction.clone()).clone()) {
@@ -265,7 +272,7 @@ impl BoardUser<'_> {
                         if visited.insert(elem.clone()) {
                             if let Some(criteria) = early_exit {
                                 let (coord, direction) = &elem;
-                                let tile = self.board.at(coord);
+                                let tile = self.at(coord);
                                 if let Some(tile) = tile {
                                     if let Some(out) = criteria(tile, coord, direction) {
                                         return Err(out);
@@ -294,7 +301,7 @@ impl BoardUser<'_> {
             .map(|(_, direction)| direction.clone())
             .collect();
         Some(TraversalResult::FeatureResult(FeatureResult {
-            board: self.board.clone(),
+            board: self,
             originators: keys,
             originator_coord: *initial_coord,
             completed: complete,
@@ -336,9 +343,8 @@ impl BoardUser<'_> {
         let mut out: Vec<ScoringData> = vec![];
         let mut visited: FxHashSet<(Coordinate, TileClickTarget)> = FxHashSet::default();
         let meeple_tiles: Vec<(Coordinate, &TileData)> = self
-            .board
             .tiles_present()
-            .flat_map(|coord| Some((coord, self.board.at(&coord)?)))
+            .flat_map(|coord| Some((coord, self.at(&coord)?)))
             .collect();
 
         for (coord, tile) in meeple_tiles {
@@ -366,9 +372,8 @@ impl BoardUser<'_> {
         coord: &Coordinate,
         tile: &'a TileData,
     ) -> Vec<ScoringData> {
-        let board = self.board.with_overlay(*coord, tile);
+        let board = self.with_overlay(*coord, tile);
 
-        let board_user = board.as_user();
         let mut data: Vec<FeatureResult> = vec![];
         // prevent double reporting single tile
         let mut seen: FxHashSet<TileClickTarget> = FxHashSet::default();
@@ -376,8 +381,7 @@ impl BoardUser<'_> {
             if seen.get(direction).is_some() {
                 continue;
             }
-            let feature_result =
-                board_user.get_connecting_feature_results(coord, direction.clone());
+            let feature_result = board.get_connecting_feature_results(coord, direction.clone());
             seen.extend(
                 feature_result
                     .as_ref()
@@ -400,8 +404,8 @@ impl BoardUser<'_> {
         monastery_checks.push((tile, *coord));
         for (derived_tile, derived_coord) in monastery_checks {
             if derived_tile.center_matches(&MiniTile::Monastery) {
-                let maybe_result = board_user
-                    .get_monastery_feature_result(&derived_coord, &TileClickTarget::Center);
+                let maybe_result =
+                    board.get_monastery_feature_result(&derived_coord, &TileClickTarget::Center);
                 if let Some(feature_result) = maybe_result {
                     data.push(feature_result);
                 }
@@ -415,7 +419,7 @@ impl BoardUser<'_> {
         coord: &Coordinate,
         direction: &TileClickTarget,
     ) -> Option<FeatureResult> {
-        let tile = self.board.at(coord)?;
+        let tile = self.at(coord)?;
         let feature = tile.at(direction);
 
         match feature {
@@ -466,10 +470,7 @@ impl BoardUser<'_> {
         initial_coord: &Coordinate,
         direction: &TileClickTarget,
     ) -> Option<FeatureResult> {
-        let feature = self
-            .board
-            .at(initial_coord)
-            .map(|tile| tile.at(direction))?;
+        let feature = self.at(initial_coord).map(|tile| tile.at(direction))?;
         if feature != &MiniTile::Monastery {
             return None;
         }
@@ -479,14 +480,14 @@ impl BoardUser<'_> {
 
         for delta in OCTAL_DELTAS {
             let coord = (initial_coord.0 + delta.0, initial_coord.1 + delta.1);
-            completed = completed && self.board.at(&coord).is_some();
+            completed = completed && self.at(&coord).is_some();
             out.insert((coord, TileClickTarget::Center));
         }
 
         let mut originators = FxHashSet::default();
         originators.insert(TileClickTarget::Center);
         Some(FeatureResult {
-            board: self.board.clone(),
+            board: self,
             originators,
             originator_coord: *initial_coord,
             completed,
@@ -500,10 +501,7 @@ impl BoardUser<'_> {
         coord: &Coordinate,
         target: TileClickTarget,
     ) -> MessageResult<()> {
-        let tile = self
-            .board
-            .at(coord)
-            .ok_or("Illegal meeple: No tile present")?;
+        let tile = self.at(coord).ok_or("Illegal meeple: No tile present")?;
         let mini_feature = tile.at(&target);
         match mini_feature {
             MiniTile::City | MiniTile::Road => {
@@ -539,7 +537,7 @@ impl BoardUser<'_> {
         }
     }
     pub fn does_legal_move_exist(&self, tile: &TileData) -> bool {
-        if self.board.tiles_present().count() == 0 {
+        if self.tiles_present().count() == 0 {
             return true;
         }
         let coords = self.get_legal_tiles();
@@ -579,15 +577,11 @@ impl BoardUser<'_> {
             }
             let mut tile = tile.clone();
             tile.rotation = rotation.clone();
-            let board = self.board.with_overlay(coord, &tile);
+            let board = self.with_overlay(coord, &tile);
 
             if can_place {
                 for dest in &meeple_dests {
-                    if board
-                        .as_user()
-                        .is_legal_meeple(&coord, dest.clone())
-                        .is_ok()
-                    {
+                    if board.is_legal_meeple(&coord, dest.clone()).is_ok() {
                         {
                             out.push(MoveRequest {
                                 coord,
@@ -632,9 +626,8 @@ impl BoardUser<'_> {
     }
 
     fn get_legal_tiles_iter(&self) -> impl Iterator<Item = Coordinate> + '_ {
-        let is_empty = self.board.tiles_present().count() == 0;
-        self.board
-            .tiles_present()
+        let is_empty = self.tiles_present().count() == 0;
+        self.tiles_present()
             .chain(if is_empty {
                 itertools::Either::Right(std::iter::once::<Coordinate>((0, 0)))
             } else {
@@ -656,13 +649,13 @@ impl BoardUser<'_> {
     }
 
     fn contains_coord(&self, coord: &Coordinate) -> bool {
-        self.board.at(coord).is_some()
+        self.at(coord).is_some()
     }
 
     pub fn is_features_match(&self, dest: &Coordinate, incoming_tile: &TileData) -> bool {
         DELTAS
             .iter()
-            .map(|delta| self.board.at(&(delta.0 + dest.0, delta.1 + dest.1)))
+            .map(|delta| self.at(&(delta.0 + dest.0, delta.1 + dest.1)))
             .zip(COUPLINGS.iter())
             .filter_map(|(existing_tile, coupling)| {
                 let tile = existing_tile?;
@@ -684,17 +677,13 @@ impl BoardData for ConcreteBoard {
     fn tiles_present(&self) -> Box<dyn Iterator<Item = Coordinate> + '_> {
         Box::new(self.data.tiles_present())
     }
-    fn as_user(&self) -> BoardUser {
-        BoardUser {
-            board: Box::new(self),
-        }
-    }
+
     fn with_overlay<'a>(&'a self, coord: Coordinate, tile: &'a TileData) -> OverlaidBoard {
         let mut overlay = FxHashMap::default();
         overlay.insert(coord, tile);
         OverlaidBoard {
-            board: Box::new(self),
-            overlay,
+            inner_board: self,
+            overlay: Some(overlay),
         }
     }
 }
@@ -721,6 +710,12 @@ impl ConcreteBoard {
         self.data.get_mut(coord)
     }
 
+    pub fn as_overlay(&self) -> OverlaidBoard {
+        OverlaidBoard {
+            inner_board: self,
+            overlay: None,
+        }
+    }
     pub fn set(&mut self, coord: Coordinate, tile: TileData) {
         self.data.insert(coord, tile);
     }
@@ -767,17 +762,17 @@ mod tests {
         let mut board = ConcreteBoard::default();
         let mut bag = LegalTileBag::default();
         board.set((30, 30), bag.pull().unwrap());
-        assert_eq!(board.as_user().get_legal_tiles().len(), 4);
+        assert_eq!(board.as_overlay().get_legal_tiles().len(), 4);
         board.set((29, 30), bag.pull().unwrap());
-        assert_eq!(board.as_user().get_legal_tiles().len(), 6);
+        assert_eq!(board.as_overlay().get_legal_tiles().len(), 6);
         board.set((29, 30), bag.pull().unwrap());
-        assert_eq!(board.as_user().get_legal_tiles().len(), 6);
+        assert_eq!(board.as_overlay().get_legal_tiles().len(), 6);
 
         board.set((29, 29), bag.pull().unwrap());
-        assert_eq!(board.as_user().get_legal_tiles().len(), 7);
+        assert_eq!(board.as_overlay().get_legal_tiles().len(), 7);
 
         board.set((30, 29), bag.pull().unwrap());
-        assert_eq!(board.as_user().get_legal_tiles().len(), 8);
+        assert_eq!(board.as_overlay().get_legal_tiles().len(), 8);
     }
     #[test]
     fn features_match_basic() {
@@ -792,13 +787,13 @@ mod tests {
         .into();
         let mut tile_right = tile_left.clone();
         board.set((30, 30), tile_left);
-        assert!(!board.as_user().is_features_match(&(30, 31), &tile_right));
+        assert!(!board.as_overlay().is_features_match(&(30, 31), &tile_right));
 
         tile_right.rotate_right();
-        assert!(!board.as_user().is_features_match(&(30, 31), &tile_right));
+        assert!(!board.as_overlay().is_features_match(&(30, 31), &tile_right));
         tile_right.rotate_right();
 
-        assert!(board.as_user().is_features_match(&(30, 31), &tile_right));
+        assert!(board.as_overlay().is_features_match(&(30, 31), &tile_right));
     }
 
     #[test]
@@ -843,7 +838,7 @@ mod tests {
         assert_eq!(
             12,
             board
-                .as_user()
+                .as_overlay()
                 .get_completion_points(
                     &(30, 32),
                     &TileDataBuilder {
@@ -894,7 +889,7 @@ mod tests {
 
         assert_eq!(
             board
-                .as_user()
+                .as_overlay()
                 .get_completion_points(&(31, 30), &tile)
                 .get(&Some(Player::Black))
                 .unwrap_or(&0)
@@ -902,7 +897,7 @@ mod tests {
             9
         );
 
-        let score_data = board.as_user().get_feature_score_data(&(31, 30), &tile);
+        let score_data = board.as_overlay().get_feature_score_data(&(31, 30), &tile);
         let mut removed = 0;
         for data in score_data {
             if !data.completed {
@@ -955,7 +950,7 @@ mod tests {
         completion_tile.rotate_right();
 
         let score_data = board
-            .as_user()
+            .as_overlay()
             .get_feature_score_data(&(-1, 0), &completion_tile);
         assert_eq!(score_data.len(), 1);
 
@@ -997,12 +992,12 @@ mod tests {
         board.set((0, 0), tile_city);
 
         let tile = board.at(&(0, 0)).unwrap();
-        let completion = board.as_user().get_completion_points(&(0, 0), tile);
+        let completion = board.as_overlay().get_completion_points(&(0, 0), tile);
         let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
         assert_eq!(points, 4);
 
-        let score_data = board.as_user().get_feature_score_data(&(0, 0), tile);
-        let completion = board.as_user().get_points_from_score_data(&score_data);
+        let score_data = board.as_overlay().get_feature_score_data(&(0, 0), tile);
+        let completion = board.as_overlay().get_points_from_score_data(&score_data);
         let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
         assert_eq!(points, 4);
 
@@ -1046,12 +1041,12 @@ mod tests {
         }
 
         let tile = board.at(&(0, 0)).unwrap();
-        let completion = board.as_user().get_completion_points(&(0, 0), tile);
+        let completion = board.as_overlay().get_completion_points(&(0, 0), tile);
         let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
         assert_eq!(points, 4);
 
-        let score_data = board.as_user().get_feature_score_data(&(0, 0), tile);
-        let completion = board.as_user().get_points_from_score_data(&score_data);
+        let score_data = board.as_overlay().get_feature_score_data(&(0, 0), tile);
+        let completion = board.as_overlay().get_points_from_score_data(&score_data);
         let points = *completion.get(&Some(player.clone())).unwrap_or(&0);
         assert_eq!(points, 4);
 
@@ -1083,14 +1078,14 @@ mod tests {
         let center = (30_i8, 30_i8);
         for delta in DELTAS {
             let dest = (center.0 + delta.0, center.1 + delta.1);
-            assert!(board.as_user().is_features_match(&dest, &tile_city));
+            assert!(board.as_overlay().is_features_match(&dest, &tile_city));
             board.set(dest, tile_city.clone());
         }
 
-        assert!(board.as_user().is_features_match(&center, &tile_city));
+        assert!(board.as_overlay().is_features_match(&center, &tile_city));
         assert_eq!(
             board
-                .as_user()
+                .as_overlay()
                 .get_completion_points(&center, &tile_city)
                 .get(&None)
                 .unwrap_or(&0)
@@ -1101,9 +1096,9 @@ mod tests {
         for _ in 0..100_000 {
             if let Some(tile) = bag.pull() {
                 if tile_city.matches_minis(&tile) {
-                    assert!(board.as_user().is_features_match(&center, &tile));
+                    assert!(board.as_overlay().is_features_match(&center, &tile));
                 } else {
-                    assert!(!board.as_user().is_features_match(&center, &tile));
+                    assert!(!board.as_overlay().is_features_match(&center, &tile));
                 }
             } else {
                 break;

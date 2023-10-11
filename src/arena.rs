@@ -16,7 +16,7 @@ use crate::bots::random_bot::RandomBot;
 use crate::tile::TileDataBuilder;
 use crate::tilebag::TileBagEnum;
 use crate::{
-    board::{BoardData, Coordinate},
+    board::Coordinate,
     bots::{bot::Bot, bot::MoveRequest, replay_bot::ReplayBot},
     referee::{Player, RefereeState},
     render::{InteractionMessage, MyApp, RenderMessage, RenderState},
@@ -241,7 +241,7 @@ impl Match {
                     bypass -= 1;
                     continue;
                 }
-                let is_empty = !state.tilebag.ensure_legal_draw(&state.board.as_user());
+                let is_empty = !state.tilebag.ensure_legal_draw(&state.board.as_overlay());
                 if is_empty {
                     break;
                 }
@@ -274,7 +274,7 @@ impl Match {
                 .or(Err("Failed to write to file"))?;
         }
 
-        let mut scores = state.board.as_user().get_standing_points();
+        let mut scores = state.board.as_overlay().get_standing_points();
         for player in players {
             let delta = state.player_scores.get(&player).unwrap_or(&0);
             if let Some(score) = scores.get_mut(&player) {

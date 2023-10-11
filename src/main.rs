@@ -114,8 +114,8 @@ fn demo_p(player_ct: u8, record: Option<PathBuf>) {
         };
 
         let mut names = FxHashMap::default();
-        names.insert(Player::Black, bot_b.get_name().to_owned());
-        names.insert(Player::White, bot_w.get_name().to_owned());
+        names.insert(Player::Black, bot_b.get_name());
+        names.insert(Player::White, bot_w.get_name());
 
         Match::play(vec![bot_w, bot_b], record)
             .unwrap()
