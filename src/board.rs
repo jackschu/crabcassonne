@@ -1127,9 +1127,9 @@ mod tests {
             ..Default::default()
         }
         .into();
-        let bag = Box::new(ReplayTileBag::new(vec![first, second, third]));
+        let bag = ReplayTileBag::new(vec![first, second, third]);
 
-        let mut state = RefereeState::from_players(vec![Player::White, Player::Black], bag);
+        let mut state = RefereeState::from_players(vec![Player::White, Player::Black], bag.into());
         state
             .process_move(MoveRequest {
                 coord: (0, 0),

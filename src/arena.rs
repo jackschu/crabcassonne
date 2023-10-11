@@ -14,6 +14,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::bots::random_bot::RandomBot;
 use crate::tile::TileDataBuilder;
+use crate::tilebag::TileBagEnum;
 use crate::{
     board::{BoardData, Coordinate},
     bots::{bot::Bot, bot::MoveRequest, replay_bot::ReplayBot},
@@ -66,19 +67,13 @@ impl Replay {
             .collect();
 
         if !should_render {
-            return Match::play_custom(
-                bots,
-                Box::new(ReplayTileBag::new(bag_data)),
-                None,
-                None,
-                None,
-            )
-            .unwrap();
+            return Match::play_custom(bots, ReplayTileBag::new(bag_data).into(), None, None, None)
+                .unwrap();
         }
         let mut frames: Vec<RenderState> = vec![];
         let out = Match::play_custom(
             bots,
-            Box::new(ReplayTileBag::new(bag_data)),
+            ReplayTileBag::new(bag_data).into(),
             None,
             Some(&mut frames),
             None,
@@ -201,18 +196,18 @@ impl Match {
                 .iter()
                 .map(|player| -> Box<dyn Bot> { Box::new(RandomBot::new(player.clone())) })
                 .collect(),
-            Box::new(ReplayTileBag::new(vec![TileDataBuilder::default().into()])),
+            ReplayTileBag::new(vec![TileDataBuilder::default().into()]).into(),
             None,
             None,
             Some(referee),
         )
     }
     pub fn play(bots: Vec<Box<dyn Bot>>, record: Option<PathBuf>) -> MessageResult<GameResult> {
-        Self::play_custom(bots, Box::<LegalTileBag>::default(), record, None, None)
+        Self::play_custom(bots, LegalTileBag::default().into(), record, None, None)
     }
     pub fn play_custom(
         bots: Vec<Box<dyn Bot>>,
-        bag: Box<dyn TileBag>,
+        bag: TileBagEnum,
         record: Option<PathBuf>,
         replay_frames: Option<&mut Vec<RenderState>>,
         referee_override: Option<RefereeState>,

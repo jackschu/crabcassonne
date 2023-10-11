@@ -1,3 +1,4 @@
+use crate::tilebag::TileBag;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 

@@ -1020,6 +1020,7 @@ in
       clap = rustPackages."registry+https://github.com/rust-lang/crates.io-index".clap."4.3.24" { inherit profileName; };
       eframe = rustPackages."registry+https://github.com/rust-lang/crates.io-index".eframe."0.22.0" { inherit profileName; };
       egui = rustPackages."registry+https://github.com/rust-lang/crates.io-index".egui."0.22.0" { inherit profileName; };
+      enum_dispatch = buildRustPackages."registry+https://github.com/rust-lang/crates.io-index".enum_dispatch."0.3.12" { profileName = "__noProfile"; };
       indicatif = rustPackages."registry+https://github.com/rust-lang/crates.io-index".indicatif."0.17.7" { inherit profileName; };
       itertools = rustPackages."registry+https://github.com/rust-lang/crates.io-index".itertools."0.11.0" { inherit profileName; };
       mimalloc = rustPackages."registry+https://github.com/rust-lang/crates.io-index".mimalloc."0.1.39" { inherit profileName; };
@@ -1364,6 +1365,19 @@ in
       [ "default" ]
       [ "std" ]
     ];
+  });
+  
+  "registry+https://github.com/rust-lang/crates.io-index".enum_dispatch."0.3.12" = overridableMkRustCrate (profileName: rec {
+    name = "enum_dispatch";
+    version = "0.3.12";
+    registry = "registry+https://github.com/rust-lang/crates.io-index";
+    src = fetchCratesIo { inherit name version; sha256 = "8f33313078bb8d4d05a2733a94ac4c2d8a0df9a2b84424ebf4f33bfc224a890e"; };
+    dependencies = {
+      once_cell = rustPackages."registry+https://github.com/rust-lang/crates.io-index".once_cell."1.18.0" { inherit profileName; };
+      proc_macro2 = rustPackages."registry+https://github.com/rust-lang/crates.io-index".proc-macro2."1.0.66" { inherit profileName; };
+      quote = rustPackages."registry+https://github.com/rust-lang/crates.io-index".quote."1.0.33" { inherit profileName; };
+      syn = rustPackages."registry+https://github.com/rust-lang/crates.io-index".syn."2.0.29" { inherit profileName; };
+    };
   });
   
   "registry+https://github.com/rust-lang/crates.io-index".enumflags2."0.7.7" = overridableMkRustCrate (profileName: rec {

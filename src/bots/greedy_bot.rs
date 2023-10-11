@@ -1,3 +1,4 @@
+use crate::tilebag::TileBag;
 use std::cmp::Ordering;
 
 use rand::rngs::ThreadRng;
@@ -122,9 +123,9 @@ mod tests {
             ..Default::default()
         }
         .into();
-        let bag = Box::new(ReplayTileBag::new(vec![first, second, third]));
+        let bag = ReplayTileBag::new(vec![first, second, third]);
 
-        let mut state = RefereeState::from_players(players.clone(), bag);
+        let mut state = RefereeState::from_players(players.clone(), bag.into());
         state
             .process_move(MoveRequest {
                 coord: (0, 0),

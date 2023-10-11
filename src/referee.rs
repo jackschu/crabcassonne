@@ -11,11 +11,11 @@ use crate::{
     bots::bot::MoveRequest,
     render::RenderState,
     tile::{Rotation, TileClickTarget, TileData},
-    tilebag::{LegalTileBag, TileBag},
+    tilebag::{LegalTileBag, TileBag, TileBagEnum},
 };
 
 pub struct RefereeState {
-    pub tilebag: Box<dyn TileBag>,
+    pub tilebag: TileBagEnum,
     pub board: ConcreteBoard,
     pub turn_order: Vec<Player>,
     pub turn_idx: usize,
@@ -30,7 +30,7 @@ static INITIAL_MEEPLES: u8 = 7;
 impl Clone for RefereeState {
     fn clone(&self) -> Self {
         Self {
-            tilebag: Box::new(self.tilebag.as_new_tile_bag()),
+            tilebag: self.tilebag.as_new_tile_bag().into(),
             board: self.board.clone(),
             turn_order: self.turn_order.clone(),
             turn_idx: self.turn_idx,
@@ -53,7 +53,7 @@ impl Default for RefereeState {
         player_meeples.insert(Player::Black, INITIAL_MEEPLES);
         RefereeState {
             board: ConcreteBoard::default(),
-            tilebag: Box::<LegalTileBag>::default(),
+            tilebag: LegalTileBag::default().into(),
             turn_order: vec![Player::White, Player::Black],
             turn_idx: 0,
             is_placing_meeple: false,
@@ -75,7 +75,7 @@ impl RefereeState {
         }
     }
 
-    pub fn from_players(players: Vec<Player>, bag: Box<dyn TileBag>) -> Self {
+    pub fn from_players(players: Vec<Player>, bag: TileBagEnum) -> Self {
         let player_scores: FxHashMap<Player, u32> =
             players.iter().map(|p| (p.clone(), 0)).collect();
         let player_meeples: FxHashMap<Player, u8> = players

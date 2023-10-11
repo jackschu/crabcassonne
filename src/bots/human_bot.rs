@@ -1,3 +1,4 @@
+use crate::tilebag::TileBag;
 use std::{
     rc::Rc,
     sync::{

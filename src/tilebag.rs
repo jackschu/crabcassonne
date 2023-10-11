@@ -1,3 +1,4 @@
+use enum_dispatch::enum_dispatch;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
@@ -13,6 +14,13 @@ pub enum NextTileType {
     Empty,
 }
 
+#[enum_dispatch]
+pub enum TileBagEnum {
+    LegalTileBag,
+    ReplayTileBag,
+}
+
+#[enum_dispatch(TileBagEnum)]
 pub trait TileBag: Sync {
     fn get_data_mut(&mut self) -> &mut Vec<TileData>;
 
