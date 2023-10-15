@@ -9,7 +9,6 @@ use crate::{
 
 #[derive(Clone)]
 pub enum NextTileType {
-    FirstTile(TileData),
     BagTile(usize),
     Empty,
 }
@@ -27,7 +26,6 @@ pub trait TileBag: Sync {
     fn get_data(&self) -> &Vec<TileData>;
     fn peek(&self) -> MessageResult<&TileData> {
         match &self.get_next_idx() {
-            NextTileType::FirstTile(tile) => Ok(tile),
             NextTileType::BagTile(idx) => Ok(&self.get_data()[*idx]),
             NextTileType::Empty => Err("Empty bag"),
         }
@@ -35,7 +33,6 @@ pub trait TileBag: Sync {
 
     fn pull(&mut self) -> Option<TileData> {
         let out = match &self.get_next_idx() {
-            NextTileType::FirstTile(tile) => Some(tile.clone()),
             NextTileType::BagTile(idx) => {
                 let idx = *idx;
                 Some(self.get_data_mut().swap_remove(idx))
@@ -67,12 +64,7 @@ pub trait TileBag: Sync {
     fn get_next_idx(&self) -> &NextTileType;
 
     fn count_remaining(&self) -> u32 {
-        let offset = if let NextTileType::FirstTile(_) = self.get_next_idx() {
-            1
-        } else {
-            0
-        };
-        self.get_data().len() as u32 + offset
+        self.get_data().len() as u32
     }
 }
 
@@ -108,10 +100,10 @@ pub struct ReplayTileBag {
 impl ReplayTileBag {
     pub fn new(mut data: Vec<TileData>) -> Self {
         data.reverse();
-        let front = data.pop().unwrap();
+        let idx = data.len() - 1;
         Self {
             data,
-            next_idx: NextTileType::FirstTile(front),
+            next_idx: NextTileType::BagTile(idx),
         }
     }
 }
@@ -419,22 +411,25 @@ impl Default for LegalTileBag {
             1
         ]);
 
+        data.push(
+            TileDataBuilder {
+                top: MiniTile::City,
+                left: MiniTile::Road,
+                right: MiniTile::Road,
+                center: MiniTile::Road,
+                ..Default::default()
+            }
+            .into(),
+        );
         // for debug endgame
         // let out: Vec<TileDataBuilder> = data.into_iter().take(5).collect();
+        let data: Vec<TileData> = data.into_iter().map(|builder| builder.into()).collect();
 
+        let idx = data.len() - 1;
         LegalTileBag {
-            data: data.into_iter().map(|builder| builder.into()).collect(),
+            data,
             rng: StdRng::seed_from_u64(rand::random()),
-            next_idx: NextTileType::FirstTile(
-                TileDataBuilder {
-                    top: MiniTile::City,
-                    left: MiniTile::Road,
-                    right: MiniTile::Road,
-                    center: MiniTile::Road,
-                    ..Default::default()
-                }
-                .into(),
-            ),
+            next_idx: NextTileType::BagTile(idx),
         }
     }
 }
