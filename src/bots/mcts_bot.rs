@@ -114,8 +114,8 @@ impl<'a> ArenaTree<'a> {
             .children
             .iter()
             .max_by(|l, r| {
-                let lv = self.arena[*l.to_owned()].data.visited;
-                let rv = self.arena[*r.to_owned()].data.visited;
+                let lv = self.arena[*l.to_owned()].data.average_reward();
+                let rv = self.arena[*r.to_owned()].data.average_reward();
                 lv.partial_cmp(&rv).unwrap()
             })
             .unwrap();
