@@ -38,17 +38,16 @@ impl Bot for ShallowBot {
     }
 
     fn get_move(&mut self, state: &RefereeState) -> MoveRequest {
-        let board_user = state.board.as_overlay();
-
         let own_player = self.get_own_player().clone();
-        let tile = state.tilebag.peek().unwrap();
-        let can_place = state
-            .player_meeples
-            .get(&own_player)
-            .map(|ct| ct > &0)
-            .unwrap_or(false);
-        let moves: Vec<MoveRequest> = board_user.get_legal_moves(tile, can_place);
+
+        let moves: Vec<MoveRequest> = state.get_legal_moves();
         let mut candidate: Option<(MoveRequest, i32)> = None;
+
+        println!(
+            "{} used rollouts {}",
+            self.get_name(),
+            (moves.len() as u32) * self.depth
+        );
 
         for move_request in moves {
             let total = (0..self.depth)

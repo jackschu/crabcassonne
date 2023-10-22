@@ -21,6 +21,30 @@ pub enum TileBagEnum {
 
 #[enum_dispatch(TileBagEnum)]
 pub trait TileBag: Sync {
+    fn rig_idx_last(&mut self);
+
+    fn rig(&mut self, rig: Vec<TileData>) {
+        for elem in &rig {
+            let data = self.get_data_mut();
+            let mut found = false;
+            for i in 0..data.len() {
+                if data[i].matches_minis(elem) {
+                    data.swap_remove(i);
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                println!("Failed to find in tilebag rig");
+            }
+        }
+
+        if let Some(tile) = rig.last() {
+            self.get_data_mut().push(tile.clone());
+            self.rig_idx_last();
+        }
+    }
+
     fn get_data_mut(&mut self) -> &mut Vec<TileData>;
 
     fn get_data(&self) -> &Vec<TileData>;
@@ -84,6 +108,9 @@ impl TileBag for LegalTileBag {
     fn get_next_idx(&self) -> &NextTileType {
         &self.next_idx
     }
+    fn rig_idx_last(&mut self) {
+        self.next_idx = NextTileType::BagTile(self.data.len() - 1);
+    }
     fn pick_next_idx(&mut self) {
         if self.data.is_empty() {
             self.next_idx = NextTileType::Empty;
@@ -117,6 +144,9 @@ impl TileBag for ReplayTileBag {
     }
     fn get_next_idx(&self) -> &NextTileType {
         &self.next_idx
+    }
+    fn rig_idx_last(&mut self) {
+        self.next_idx = NextTileType::BagTile(self.data.len() - 1);
     }
     fn pick_next_idx(&mut self) {
         if self.data.is_empty() {

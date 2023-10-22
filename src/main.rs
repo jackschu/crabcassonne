@@ -13,8 +13,8 @@ use std::{
 use crabcassonne::{
     arena::{random_match, Match, Replay},
     bots::{
-        bot::Bot, greedy_bot::GreedyBot, human_bot::HumanBot, random_bot::RandomBot,
-        shallow_bot::ShallowBot,
+        bot::Bot, greedy_bot::GreedyBot, human_bot::HumanBot, mcts_bot::MCTSBot,
+        random_bot::RandomBot, shallow_bot::ShallowBot,
     },
     referee::Player,
     render::{InteractionMessage, MyApp, RenderMessage},
@@ -110,7 +110,7 @@ fn demo_p(player_ct: u8, record: Option<PathBuf>) {
         let bot_b: Box<dyn Bot> = if player_ct > 1 {
             Box::new(HumanBot::new(Player::Black, receiver_mutex, input_sender))
         } else {
-            Box::new(ShallowBot::new(Player::Black, 20))
+            Box::new(MCTSBot::new(Player::Black, 100))
         };
 
         let mut names = FxHashMap::default();
@@ -161,8 +161,8 @@ impl AggStats {
 fn demo_threaded(n: u32, is_fast: bool) {
     let get_fast_white = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::White)) };
     let get_fast_black = || -> Box<dyn Bot> { Box::new(RandomBot::new(Player::Black)) };
-    let get_white = || -> Box<dyn Bot> { Box::new(ShallowBot::new(Player::White, 10)) };
-    let get_black = || -> Box<dyn Bot> { Box::new(ShallowBot::new(Player::Black, 10)) };
+    let get_white = || -> Box<dyn Bot> { Box::new(ShallowBot::new(Player::White, 100)) };
+    let get_black = || -> Box<dyn Bot> { Box::new(MCTSBot::new(Player::Black, 100)) };
 
     let mut stats = AggStats::default();
     let bar = ProgressBar::new(n as u64);

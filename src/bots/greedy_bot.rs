@@ -33,14 +33,9 @@ impl Bot for GreedyBot {
 
     fn get_move(&mut self, state: &RefereeState) -> MoveRequest {
         let board_user = state.board.as_overlay();
-
         let tile = state.tilebag.peek().unwrap();
-        let can_place = state
-            .player_meeples
-            .get(self.get_own_player())
-            .map(|ct| ct > &0)
-            .unwrap_or(false);
-        let moves: Vec<MoveRequest> = board_user.get_legal_moves(tile, can_place);
+
+        let moves: Vec<MoveRequest> = state.get_legal_moves();
         let mut candidate: Option<(MoveRequest, i32)> = None;
         for move_request in moves {
             let mut tile = tile.clone();

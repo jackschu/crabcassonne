@@ -174,6 +174,17 @@ impl RefereeState {
         }
     }
 
+    pub fn get_legal_moves(&self) -> Vec<MoveRequest> {
+        let board_user = self.board.as_overlay();
+        let tile = self.tilebag.peek().unwrap();
+        let can_place = self
+            .player_meeples
+            .get(&self.get_player())
+            .map(|ct| ct > &0)
+            .unwrap_or(false);
+        board_user.get_legal_moves(tile, can_place)
+    }
+
     pub fn handle_tile_placement(
         &mut self,
         coord: Coordinate,
@@ -213,6 +224,9 @@ impl RefereeState {
         } else {
             Err("placing meeple on non existant tile")
         }
+    }
+    pub fn get_next_player(&self) -> Player {
+        self.turn_order[(self.turn_idx + 1) % self.turn_order.len()].clone()
     }
     pub fn get_player(&self) -> Player {
         self.turn_order[self.turn_idx].clone()
