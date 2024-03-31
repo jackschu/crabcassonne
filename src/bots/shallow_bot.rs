@@ -43,11 +43,11 @@ impl Bot for ShallowBot {
         let moves: Vec<MoveRequest> = state.get_legal_moves();
         let mut candidate: Option<(MoveRequest, i32)> = None;
 
-        println!(
-            "{} used rollouts {}",
-            self.get_name(),
-            (moves.len() as u32) * self.depth
-        );
+        // println!(
+        //     "{} used rollouts {}",
+        //     self.get_name(),
+        //     (moves.len() as u32) * self.depth
+        // );
 
         for move_request in moves {
             let total = (0..self.depth)

@@ -50,7 +50,7 @@ impl Bot for MCTSBot {
             //     break;
             // }
         }
-        println!("{} used rollouts {}", self.get_name(), arena.rollouts);
+        //        println!("{} used rollouts {}", self.get_name(), arena.rollouts);
 
         arena.recommend()
     }
