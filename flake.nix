@@ -1,15 +1,14 @@
 # maintain with
-# nix flake lock --update-input cargo2nix
-# nix run github:cargo2nix/cargo2nix
-# patch -p1 -R -i zvariant.patch 
+# nix flake lock --update-input crate2nix
+# nix run github:nix-community/crate2nix
 {
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay.url = "github:oxalica/rust-overlay";
-    cargo2nix.url = "github:cargo2nix/cargo2nix";
+    crate2nix.url = "github:nix-community/crate2nix";
   };
 
-  outputs = { self, nixpkgs, flake-utils, cargo2nix, rust-overlay }:
+  outputs = { self, nixpkgs, flake-utils, crate2nix, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         systemTargets = {
@@ -20,8 +19,25 @@
         pkgs = import nixpkgs {
           inherit system;
           overlays =
-            [ cargo2nix.overlays.default rust-overlay.overlays.default ];
+            [ rust-overlay.overlays.default ];
         };
+        crateName = "crabcassonne";
+
+        inherit (import "${crate2nix}/tools.nix" { inherit pkgs; })
+          generatedCargoNix;
+
+        project = pkgs.callPackage (generatedCargoNix {
+          name = crateName;
+          src = ./.;
+        }) {
+          defaultCrateOverrides = pkgs.defaultCrateOverrides // {
+            crabcassonne = drv: {
+              propagatedBuildInputs = drv.propagatedBuildInputs or [ ]
+                                      ++ [ pkgs.glibc pkgs.makeWrapper pkgs.gcc-unwrapped ];
+            };
+          };
+        };
+
 
         libPath = with pkgs;
           lib.makeLibraryPath [
@@ -33,43 +49,61 @@
             xorg.libXi
             xorg.libXrandr
           ];
-        rustPkgs = pkgs.rustBuilder.makePackageSet {
-          rustVersion = "1.69.0";
-          packageFun = import ./Cargo.nix;
-          target = systemTargets.${system};
+        # rustPkgs = pkgs.rustBuilder.makePackageSet {
+        #   rustVersion = "1.86.0";
+        #   packageFun = import ./Cargo.nix;
+        #   target = systemTargets.${system};
 
-          # Use the existing all list of overrides and append your override
-          packageOverrides = pkgs:
-            pkgs.rustBuilder.overrides.all ++ [
+        #   # Use the existing all list of overrides and append your override
+        #   packageOverrides = pkgs:
+        #     pkgs.rustBuilder.overrides.all ++ [
 
-              # parentheses disambiguate each makeOverride call as a single list element
-              (pkgs.rustBuilder.rustLib.makeOverride {
-                name = "crabcassonne";
-                overrideAttrs = drv: {
-                  propagatedBuildInputs = drv.propagatedBuildInputs or [ ]
-                    ++ [ pkgs.glibc pkgs.makeWrapper pkgs.gcc-unwrapped ];
-                };
-              })
-            ];
-        };
+        #       # parentheses disambiguate each makeOverride call as a single list element
+        #       (pkgs.rustBuilder.rustLib.makeOverride {
+        #         name = "crabcassonne";
+        #         overrideAttrs = drv: {
+        #           propagatedBuildInputs = drv.propagatedBuildInputs or [ ]
+        #             ++ [ pkgs.glibc pkgs.makeWrapper pkgs.gcc-unwrapped ];
+        #         };
+        #       })
+        #     ];
+        # };
 
+        # crab-wrapped = pkgs.runCommand "crabcassonne" {
+        #   meta = rustPkgs.workspace.crabcassonne.meta or { };
+        #   passthru = (rustPkgs.workspace.crabcassonne.passthru or { }) // {
+        #     unwrapped = rustPkgs.workspace.crabcassonne;
+        #   };
+        #   nativeBuildInputs = [ pkgs.makeWrapper ];
+        #   makeWrapperArgs = [ ];
+        # } ''
+        #   cp -rs --no-preserve=mode,ownership "${
+        #     rustPkgs.workspace.crabcassonne { }
+        #   }" $out
+        #   wrapProgram "$out/bin/crabcassonne" --prefix LD_LIBRARY_PATH : "${libPath}"
+        # '';
+#        target = ${system};
+        built = project.rootCrate.build;
         crab-wrapped = pkgs.runCommand "crabcassonne" {
-          meta = rustPkgs.workspace.crabcassonne.meta or { };
-          passthru = (rustPkgs.workspace.crabcassonne.passthru or { }) // {
-            unwrapped = rustPkgs.workspace.crabcassonne;
+          meta = built.meta or { };
+          passthru = (built.passthru or { }) // {
+            unwrapped = built;
           };
           nativeBuildInputs = [ pkgs.makeWrapper ];
           makeWrapperArgs = [ ];
         } ''
           cp -rs --no-preserve=mode,ownership "${
-            rustPkgs.workspace.crabcassonne { }
+            built
           }" $out
           wrapProgram "$out/bin/crabcassonne" --prefix LD_LIBRARY_PATH : "${libPath}"
         '';
 
+
       in rec {
+
         packages = {
-          crabcassonne = crab-wrapped;
+          crab-wrapped = crab-wrapped;
+          crabcassonne = project.rootCrate.build;
           default = packages.crabcassonne;
         };
       });
