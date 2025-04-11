@@ -102,8 +102,7 @@
       in rec {
 
         packages = {
-          crab-wrapped = crab-wrapped;
-          crabcassonne = project.rootCrate.build;
+          crabcassonne = crab-wrapped;
           default = packages.crabcassonne;
         };
       });
